@@ -25,21 +25,84 @@ if errorlevel 1 (
     if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
 )
 
-:: 检查本地构建（与脚本同一目录）
-if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
-    set "CODEGRAPH="%NODE_CMD%" "%SCRIPT_DIR%\dist\bin\codegraph.js""
+:: ============================================
+:: 检查本地构建 + 依赖完整性
+:: ============================================
+set "LOCAL_DIR="
+if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%"
+if exist "%SCRIPT_DIR%\..\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%\.."
+
+if defined LOCAL_DIR (
+    :: 检查依赖是否存在
+    if exist "!LOCAL_DIR!\node_modules\commander" (
+        set "CODEGRAPH="%NODE_CMD%" "!LOCAL_DIR!\dist\bin\codegraph.js""
+        goto :detect_done
+    )
+    :: 依赖缺失，自动安装
+    echo(检测到编译产物但依赖缺失，正在自动安装...
+    echo.
+    pushd "!LOCAL_DIR!"
+    call npm ci --no-audit --no-fund 2>&1
+    popd
+    if not errorlevel 1 (
+        set "CODEGRAPH="%NODE_CMD%" "!LOCAL_DIR!\dist\bin\codegraph.js""
+        echo(依赖安装完成!
+        echo.
+        goto :detect_done
+    )
+    echo.
+)
+
+:: ============================================
+:: 自动编译：如果检测到是 codegraph 仓库但未编译，自动执行构建
+:: ============================================
+echo(检测到 codegraph 源码但未编译，正在自动构建...
+echo.
+
+:: 尝试在脚本所在目录构建
+if exist "%SCRIPT_DIR%\package.json" (
+    pushd "%SCRIPT_DIR%"
+    goto :do_build
+)
+:: 尝试在上级目录构建
+if exist "%SCRIPT_DIR%\..\package.json" (
+    pushd "%SCRIPT_DIR%\.."
+    goto :do_build
+)
+goto :build_failed
+
+:do_build
+echo(--- 安装依赖 ---
+call npm ci --no-audit --no-fund 2>&1
+if errorlevel 1 (
+    popd
+    goto :build_failed
+)
+echo.
+echo(--- 构建 codegraph ---
+call npm run build 2>&1
+if errorlevel 1 (
+    popd
+    goto :build_failed
+)
+popd
+
+:: 构建完成后重新检测
+set "LOCAL_DIR="
+if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%"
+if exist "%SCRIPT_DIR%\..\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%\.."
+if defined LOCAL_DIR (
+    set "CODEGRAPH="%NODE_CMD%" "!LOCAL_DIR!\dist\bin\codegraph.js""
+    echo(构建成功!
+    echo.
     goto :detect_done
 )
 
-:: 检查本地构建（脚本的上级目录）
-if exist "%SCRIPT_DIR%\..\dist\bin\codegraph.js" (
-    set "CODEGRAPH="%NODE_CMD%" "%SCRIPT_DIR%\..\dist\bin\codegraph.js""
-    goto :detect_done
-)
-
-echo([错误] 未找到 codegraph！
-echo(请确保 codegraph 已全局安装: npm i -g @colbymchenry/codegraph
-echo(或将此脚本放在 codegraph 仓库根目录下。
+:build_failed
+echo.
+echo([错误] codegraph 未找到或编译失败！
+echo(请手动执行: cd /d "%SCRIPT_DIR%" ^&^& npm ci ^&^& npm run build
+echo(或全局安装: npm i -g @colbymchenry/codegraph
 pause
 exit /b 1
 
@@ -94,18 +157,21 @@ echo ================================================
 echo.
 echo( 当前目录: %CD%    %MCP_ICON%
 echo.
-echo; --- 查看分析 ----------      --- 搜索追踪 ----------
-echo; [1] 项目状态                [3] 搜索符号    [4] 查找调用者
-echo; [2] 文件结构                [5] 查被调用者  [6] 影响分析
-echo;                             [7] 查找受影响测试
+echo( ---查看分析---     ---搜索追踪----------
+set "M1= [1]项目状态        [3]搜索符号   [4]查找调用者"
+set "M2= [2]文件结构        [5]查被调者   [6]影响分析"
+set "M3=                    [7]查找受影响测试"
+echo(!M1!
+echo(!M2!
+echo(!M3!
 echo.
-echo; --- 索引维护 ----------      --- 服务与配置 ----------
-echo; [8] 初始化项目              [11] MCP 服务   [12] 配置 MCP
-echo; [9] 重新索引                [13] 卸载配置   [14] 帮助
-echo; [10] 增量同步
+echo( ---索引维护---     ---服务与配置--------
+echo( [8]初始化项目      [11]MCP服务   [12]配置MCP
+echo( [9]重新索引        [13]卸载配置   [14]帮助
+echo( [10]增量同步
 echo.
-echo; ------------------------------------------------
-echo;  [0] 退出
+echo( -----------------------------------------------
+echo(  [0]退出
 echo.
 set /p choice="请输入选项 (0-14): "
 
