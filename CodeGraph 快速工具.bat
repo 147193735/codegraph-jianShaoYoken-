@@ -111,21 +111,21 @@ echo(  [0]退出
 echo.
 set /p choice="请输入选项 (0-14): "
 
-if "%choice%"=="1" goto status
-if "%choice%"=="2" goto files
-if "%choice%"=="3" goto query
-if "%choice%"=="4" goto callers
-if "%choice%"=="5" goto callees
-if "%choice%"=="6" goto impact
-if "%choice%"=="7" goto affected
-if "%choice%"=="8" goto init
-if "%choice%"=="9" goto index
-if "%choice%"=="10" goto sync
-if "%choice%"=="11" goto serve
-if "%choice%"=="12" goto vscode_mcp
-if "%choice%"=="13" goto uninstall
-if "%choice%"=="14" goto help
-if "%choice%"=="0" exit /b
+if "!choice!"=="1" goto status
+if "!choice!"=="2" goto files
+if "!choice!"=="3" goto query
+if "!choice!"=="4" goto callers
+if "!choice!"=="5" goto callees
+if "!choice!"=="6" goto impact
+if "!choice!"=="7" goto affected
+if "!choice!"=="8" goto init
+if "!choice!"=="9" goto index
+if "!choice!"=="10" goto sync
+if "!choice!"=="11" goto serve
+if "!choice!"=="12" goto vscode_mcp
+if "!choice!"=="13" goto uninstall
+if "!choice!"=="14" goto help
+if "!choice!"=="0" goto safe_exit
 goto menu
 
 :status
@@ -134,7 +134,7 @@ echo ================================================
 echo(             项目状态检查
 echo ================================================
 echo.
-%CODEGRAPH% status
+call %CODEGRAPH% status
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -149,15 +149,15 @@ echo ================================================
 echo.
 echo(格式选项: tree(树形) flat(列表) grouped(按语言)
 set /p fmt="请输入格式 (默认 tree): "
-if "%fmt%"=="" set fmt=tree
+if "!fmt!"=="" set fmt=tree
 echo.
 echo(筛选目录(可选，直接回车跳过):
 set /p filter="请输入目录路径: "
 echo.
-if "%filter%"=="" (
-    %CODEGRAPH% files --format %fmt%
+if "!filter!"=="" (
+    call %CODEGRAPH% files --format %fmt%
 ) else (
-    %CODEGRAPH% files --format %fmt% --filter "%filter%"
+    call %CODEGRAPH% files --format %fmt% --filter "%filter%"
 )
 echo.
 echo ------------------------------------------------
@@ -172,11 +172,11 @@ echo(             搜索代码符号
 echo ================================================
 echo.
 set /p symbol="请输入要搜索的符号名称: "
-if "%symbol%"=="" goto query
+if "!symbol!"=="" goto query
 echo.
 echo(正在搜索 "%symbol%"...
 echo.
-%CODEGRAPH% query "%symbol%"
+call %CODEGRAPH% query "%symbol%"
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -190,11 +190,11 @@ echo(             查找调用者
 echo ================================================
 echo.
 set /p symbol="请输入符号名称: "
-if "%symbol%"=="" goto callers
+if "!symbol!"=="" goto callers
 echo.
 echo(正在查找 "%symbol%" 的调用者...
 echo.
-%CODEGRAPH% callers "%symbol%"
+call %CODEGRAPH% callers "%symbol%"
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -208,11 +208,11 @@ echo(             查找被调用者
 echo ================================================
 echo.
 set /p symbol="请输入符号名称: "
-if "%symbol%"=="" goto callees
+if "!symbol!"=="" goto callees
 echo.
 echo(正在查找 "%symbol%" 调用了什么...
 echo.
-%CODEGRAPH% callees "%symbol%"
+call %CODEGRAPH% callees "%symbol%"
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -226,13 +226,13 @@ echo(             分析变更影响
 echo ================================================
 echo.
 set /p symbol="请输入要分析的符号名称: "
-if "%symbol%"=="" goto impact
+if "!symbol!"=="" goto impact
 set /p depth="请输入分析深度 (默认 2): "
-if "%depth%"=="" set depth=2
+if "!depth!"=="" set depth=2
 echo.
 echo(正在分析 "%symbol%" 的影响范围 (深度=%depth%)...
 echo.
-%CODEGRAPH% impact "%symbol%" --depth %depth%
+call %CODEGRAPH% impact "%symbol%" --depth %depth%
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -251,7 +251,7 @@ echo(示例: src/utils.ts src/api.ts
 echo.
 set /p files="请输入文件路径: "
 echo.
-if not "%files%"=="" goto :affected_files
+if not "!files!"=="" goto :affected_files
 echo 正在使用 git diff 检测变更文件...
 echo.
 git diff --name-only HEAD~1 2>nul | %CODEGRAPH% affected --stdin
@@ -260,7 +260,7 @@ goto :affected_done
 :affected_files
 echo 正在查找受影响的测试文件...
 echo.
-%CODEGRAPH% affected %files%
+call %CODEGRAPH% affected %files%
 
 :affected_done
 echo.
@@ -277,7 +277,7 @@ echo ================================================
 echo.
 echo(正在初始化项目并构建索引...
 echo.
-%CODEGRAPH% init -i
+call %CODEGRAPH% init -i
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -292,11 +292,11 @@ echo ================================================
 echo.
 echo(警告: 将清除现有索引并重新构建!
 set /p confirm="确认重新索引? (y/n): "
-if /i "%confirm%"=="y" (
+if /i "!confirm!"=="y" (
     echo.
     echo 正在执行完整重新索引...
     echo.
-    %CODEGRAPH% index --force
+    call %CODEGRAPH% index --force
 ) else (
     echo 已取消。
 )
@@ -314,7 +314,7 @@ echo ================================================
 echo.
 echo(正在同步最新的文件变更...
 echo.
-%CODEGRAPH% sync
+call %CODEGRAPH% sync
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -330,7 +330,7 @@ echo.
 echo(正在启动 MCP 服务...
 echo(按 Ctrl+C 停止服务
 echo.
-%CODEGRAPH% serve --mcp
+call %CODEGRAPH% serve --mcp
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -349,7 +349,7 @@ echo(  - Cursor
 echo(  - Claude Code
 echo(  - 以及其他已安装的 AI 代理
 echo.
-%CODEGRAPH% install
+call %CODEGRAPH% install
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -365,8 +365,8 @@ echo.
 echo(警告: 这将从所有已配置的代理中移除 CodeGraph!
 echo.
 set /p confirm="确认卸载? (y/n): "
-if /i "%confirm%"=="y" (
-    %CODEGRAPH% uninstall
+if /i "!confirm!"=="y" (
+    call %CODEGRAPH% uninstall
     echo.
     echo 卸载完成。
 ) else (
@@ -404,4 +404,16 @@ echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
 pause >nul
+goto menu
+
+:: ============================================
+:: 安全退出 & 兜底（防止窗口意外关闭）
+:: ============================================
+:safe_exit
+echo.
+echo(感谢使用 CodeGraph！
+pause >nul
+exit /b
+
+:: 兜底：万一脚本执行流到达此处，回到菜单
 goto menu
