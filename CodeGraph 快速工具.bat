@@ -3,108 +3,55 @@ chcp 65001 >nul 2>&1
 title CodeGraph 快速工具 v2.0
 color 0B
 setlocal enabledelayedexpansion
-@echo off
 
 :: ============================================
-:: CodeGraph 路径智能检测
+:: CodeGraph 检测与自动安装
 :: ============================================
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-:: 优先使用全局安装的 codegraph
+:: 步骤1: 检测 Node.js
+set "NODE_CMD=node"
+where node 2>nul >nul
+if errorlevel 1 (
+    if exist "%ProgramFiles%\nodejs\node.exe" (
+        set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
+    ) else (
+        echo [错误] 未检测到 Node.js！
+        echo.
+        echo CodeGraph 需要 Node.js ^>=18 运行环境。
+        echo 请先从 https://nodejs.org 下载安装 Node.js LTS 版本。
+        echo.
+        pause
+        exit /b 1
+    )
+)
+
+:: 步骤2: 检测 codegraph（全局安装优先）
 where codegraph 2>nul >nul
 if not errorlevel 1 (
     set "CODEGRAPH=codegraph"
     goto :detect_done
 )
 
-:: 查找 node 路径
-set "NODE_CMD=node"
-where node 2>nul >nul
-if errorlevel 1 (
-    if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
-)
-
-:: ============================================
-:: 检查本地构建 + 依赖完整性
-:: ============================================
-set "LOCAL_DIR="
-if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%"
-if exist "%SCRIPT_DIR%\..\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%\.."
-
-if defined LOCAL_DIR (
-    :: 检查依赖是否存在
-    if exist "!LOCAL_DIR!\node_modules\commander" (
-        set "CODEGRAPH="%NODE_CMD%" "!LOCAL_DIR!\dist\bin\codegraph.js""
-        goto :detect_done
-    )
-    :: 依赖缺失，自动安装
-    echo(检测到编译产物但依赖缺失，正在自动安装...
-    echo.
-    pushd "!LOCAL_DIR!"
-    call npm ci --no-audit --no-fund 2>&1
-    popd
-    if not errorlevel 1 (
-        set "CODEGRAPH="%NODE_CMD%" "!LOCAL_DIR!\dist\bin\codegraph.js""
-        echo(依赖安装完成!
-        echo.
-        goto :detect_done
-    )
-    echo.
-)
-
-:: ============================================
-:: 自动编译：如果检测到是 codegraph 仓库但未编译，自动执行构建
-:: ============================================
-echo(检测到 codegraph 源码但未编译，正在自动构建...
+:: 未找到，自动全局安装
 echo.
-
-:: 尝试在脚本所在目录构建
-if exist "%SCRIPT_DIR%\package.json" (
-    pushd "%SCRIPT_DIR%"
-    goto :do_build
-)
-:: 尝试在上级目录构建
-if exist "%SCRIPT_DIR%\..\package.json" (
-    pushd "%SCRIPT_DIR%\.."
-    goto :do_build
-)
-goto :build_failed
-
-:do_build
-echo(--- 安装依赖 ---
-call npm ci --no-audit --no-fund 2>&1
+echo [*] 未检测到 CodeGraph，正在自动全局安装...
+echo [*] npm i -g @colbymchenry/codegraph
+echo.
+call npm i -g @colbymchenry/codegraph
 if errorlevel 1 (
-    popd
-    goto :build_failed
+    echo.
+    echo [错误] 全局安装失败！请检查网络连接或手动执行：
+    echo   npm i -g @colbymchenry/codegraph
+    echo.
+    pause
+    exit /b 1
 )
 echo.
-echo(--- 构建 codegraph ---
-call npm run build 2>&1
-if errorlevel 1 (
-    popd
-    goto :build_failed
-)
-popd
-
-:: 构建完成后重新检测
-set "LOCAL_DIR="
-if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%"
-if exist "%SCRIPT_DIR%\..\dist\bin\codegraph.js" set "LOCAL_DIR=%SCRIPT_DIR%\.."
-if defined LOCAL_DIR (
-    set "CODEGRAPH="%NODE_CMD%" "!LOCAL_DIR!\dist\bin\codegraph.js""
-    echo(构建成功!
-    echo.
-    goto :detect_done
-)
-
-:build_failed
+echo [√] CodeGraph 安装完成！
 echo.
-echo([错误] codegraph 未找到或编译失败！
-echo(请手动执行: cd /d "%SCRIPT_DIR%" ^&^& npm ci ^&^& npm run build
-echo(或全局安装: npm i -g @colbymchenry/codegraph
-pause
-exit /b 1
+set "CODEGRAPH=codegraph"
 
 :detect_done
 
@@ -128,17 +75,6 @@ if not "%~1"=="" (
         pause
         exit /b 1
     )
-    cls
-    echo ================================================
-    echo      CodeGraph 快速工具 v2.0
-    echo      语义代码知识图谱 --- 命令行助手
-    echo ================================================
-    echo.
-    echo  拖入目标: !TARGET!
-    echo  已切换到: %CD%
-    echo.
-    echo  按任意键进入主菜单...
-    pause >nul
 )
 
 :menu
@@ -166,7 +102,7 @@ echo(!M2!
 echo(!M3!
 echo.
 echo( ---索引维护---     ---服务与配置--------
-echo( [8]初始化项目      [11]MCP服务   [12]配置MCP
+echo( [8]初始化项目      [11]MCP服务   [12]配置AI代理
 echo( [9]重新索引        [13]卸载配置   [14]帮助
 echo( [10]增量同步
 echo.
@@ -309,20 +245,24 @@ echo ================================================
 echo(         查找受影响的测试文件
 echo ================================================
 echo.
-echo(输入源文件路径(空格分隔多个文件，或直接回车使用 git diff)
+echo(输入源文件路径(空格分隔多个文件^)
+echo(直接回车则对比最近一次 git 提交的变更
 echo(示例: src/utils.ts src/api.ts
 echo.
 set /p files="请输入文件路径: "
 echo.
-if "%files%"=="" (
-    echo 正在使用 git diff 检测变更文件...
-    echo.
-    %CODEGRAPH% affected --stdin
-) else (
-    echo 正在查找受影响的测试文件...
-    echo.
-    %CODEGRAPH% affected %files%
-)
+if not "%files%"=="" goto :affected_files
+echo 正在使用 git diff 检测变更文件...
+echo.
+git diff --name-only HEAD~1 2>nul | %CODEGRAPH% affected --stdin
+goto :affected_done
+
+:affected_files
+echo 正在查找受影响的测试文件...
+echo.
+%CODEGRAPH% affected %files%
+
+:affected_done
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
@@ -400,78 +340,20 @@ goto menu
 :vscode_mcp
 cls
 echo ================================================
-echo(        配置 VS Code MCP 服务器
+echo(        配置 AI 代理 MCP 集成
 echo ================================================
 echo.
-set "MCP_DIR=%APPDATA%\Code\User"
-
-if not exist "%MCP_DIR%" (
-    echo [错误] 未找到 VS Code 配置目录!
-    echo 请确保已安装 VS Code 并至少运行过一次。
-    echo.
-    pause
-    goto menu
-)
-
-:: 检查是否已配置
-set "MCP_ALREADY="
-if exist "%MCP_DIR%\mcp.json" (
-    findstr /i "codegraph" "%MCP_DIR%\mcp.json" >nul 2>&1 && set "MCP_ALREADY=1"
-)
-
-if defined MCP_ALREADY (
-    echo 检测到 VS Code MCP 已配置!
-    echo   - 文件: %MCP_DIR%\mcp.json
-    echo.
-    set /p overwrite="是否重新配置? (y/n): "
-)
-if defined MCP_ALREADY (
-    if /i "!overwrite!"=="n" goto :vscode_skip
-    if /i "!overwrite!"=="" goto :vscode_skip
-    echo.
-)
-
-if exist "%MCP_DIR%\mcp.json" (
-    copy "%MCP_DIR%\mcp.json" "%MCP_DIR%\mcp.json.bak" >nul
-    echo 已备份现有配置为 mcp.json.bak
-    echo.
-)
-
-echo(正在写入 MCP 配置...
+echo(正在运行 CodeGraph 安装程序，将自动检测并配置：
+echo(  - VS Code Copilot Chat
+echo(  - Cursor
+echo(  - Claude Code
+echo(  - 以及其他已安装的 AI 代理
 echo.
-
-:: 构建 MCP JSON 配置
-> "%MCP_DIR%\mcp.json" (
-    echo {
-    echo     "servers": {
-    echo         "codegraph": {
-    echo             "type": "stdio",
-    echo             "command": "node",
-    echo             "args": [
-    echo                 "%SCRIPT_DIR:\=\\%\\dist\\bin\\codegraph.js",
-    echo                 "serve",
-    echo                 "--mcp"
-    echo             ]
-    echo         }
-    echo     }
-    echo }
-)
-
-echo(配置完成!
-echo(文件位置: %MCP_DIR%\mcp.json
-echo.
-echo(请重启 VS Code 使配置生效。
-echo(重启后在 Copilot Chat 中问: "用 codegraph 查一下项目状态"
+%CODEGRAPH% install
 echo.
 echo ------------------------------------------------
 echo(按任意键返回主菜单...
 pause >nul
-goto menu
-
-:vscode_skip
-echo(已取消。
-echo.
-pause
 goto menu
 
 :uninstall
