@@ -54,10 +54,11 @@ echo.
 set "CODEGRAPH=codegraph"
 
 :: 步骤3: 若脚本目录含本地构建，MCP 配置优先使用之（开发仓库场景）
+:: 使用 "node" 而非完整路径，避免 "Program Files" 空格导致配置写入失败
 set "CG_MCP_CMD=codegraph"
 set "CG_MCP_SCRIPT="
 if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
-    set "CG_MCP_CMD=%NODE_CMD%"
+    set "CG_MCP_CMD=node"
     set "CG_MCP_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
 )
 
@@ -471,9 +472,14 @@ call :mcp_write_json
 exit /b 0
 
 :mcp_write_json
+set "MCP_ENV_CFG=%MCP_WRITE_CFG%"
+set "MCP_ENV_KEY=%MCP_WRITE_KEY%"
+set "MCP_ENV_PATH_ARG=%MCP_WRITE_PATH_ARG%"
+set "MCP_ENV_CMD=%CG_MCP_CMD%"
+set "MCP_ENV_SCRIPT=%CG_MCP_SCRIPT%"
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
-  "$cfgPath='%MCP_WRITE_CFG%'; $topKey='%MCP_WRITE_KEY%'; $pathArg='%MCP_WRITE_PATH_ARG%';" ^
-  "$cmd='%CG_MCP_CMD%'; $script='%CG_MCP_SCRIPT%';" ^
+  "$cfgPath=$env:MCP_ENV_CFG; $topKey=$env:MCP_ENV_KEY; $pathArg=$env:MCP_ENV_PATH_ARG;" ^
+  "$cmd=$env:MCP_ENV_CMD; $script=$env:MCP_ENV_SCRIPT; if(-not $cmd){$cmd='codegraph'};" ^
   "$dir=Split-Path $cfgPath -Parent; if(-not(Test-Path $dir)){New-Item -ItemType Directory -Path $dir -Force|Out-Null};" ^
   "$obj=$null; if((Test-Path $cfgPath)-and((Get-Item $cfgPath).Length -gt 0)){try{$obj=Get-Content $cfgPath -Raw -Encoding UTF8|ConvertFrom-Json}catch{$obj=$null}};" ^
   "if(-not $obj){$obj=New-Object PSObject};" ^
