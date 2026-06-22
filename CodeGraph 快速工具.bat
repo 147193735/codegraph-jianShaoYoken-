@@ -1,6 +1,6 @@
 ﻿@echo off
 chcp 65001 >nul 2>&1
-title CodeGraph 快速工具 v2.1
+title CodeGraph 快速工具 v2.2
 color 0B
 setlocal enabledelayedexpansion
 
@@ -29,31 +29,63 @@ if errorlevel 1 (
 
 :: 步骤2: 检测 codegraph（全局安装优先）
 where codegraph 2>nul >nul
-if not errorlevel 1 (
-    set "CODEGRAPH=codegraph"
-    goto :detect_done
-)
-
-:: 未找到，自动全局安装
-echo.
-echo [*] 未检测到 CodeGraph，正在自动全局安装...
-echo [*] npm i -g @colbymchenry/codegraph
-echo.
-call npm i -g @colbymchenry/codegraph
 if errorlevel 1 (
+    :: 未找到，自动全局安装
     echo.
-    echo [错误] 全局安装失败！请检查网络连接或手动执行：
-    echo   npm i -g @colbymchenry/codegraph
+    echo [*] 未检测到 CodeGraph，正在自动全局安装...
+    echo [*] npm i -g @colbymchenry/codegraph
     echo.
-    pause
-    exit /b 1
+    call npm i -g @colbymchenry/codegraph
+    if errorlevel 1 (
+        echo.
+        echo [错误] 全局安装失败！请检查网络连接或手动执行：
+        echo   npm i -g @colbymchenry/codegraph
+        echo.
+        pause
+        exit /b 1
+    )
+    echo.
+    echo [√] CodeGraph 安装完成！
+    echo.
 )
-echo.
-echo [√] CodeGraph 安装完成！
-echo.
 set "CODEGRAPH=codegraph"
 
-:: 步骤3: 若脚本目录含本地构建，MCP 配置优先使用之（开发仓库场景）
+:: 步骤3: 本地开发仓库 — 自动安装依赖并构建
+:: 当脚本位于 codegraph 仓库中（有 package.json），确保 node_modules 和 dist 就绪
+if exist "%SCRIPT_DIR%\package.json" (
+    echo.
+    echo [*] 检测到本地开发仓库，正在检查构建环境...
+
+    :: 3a. 安装依赖（node_modules/typescript 缺失时自动执行）
+    if not exist "%SCRIPT_DIR%\node_modules\typescript" (
+        echo [*] npm install -- 安装项目依赖...
+        echo.
+        cd /d "%SCRIPT_DIR%"
+        call npm install
+        if errorlevel 1 (
+            echo.
+            echo [警告] npm install 失败，某些功能可能不可用！
+        )
+        echo.
+    )
+
+    :: 3b. 构建项目（dist/bin/codegraph.js 缺失时自动执行）
+    if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
+        echo [*] npm run build -- 编译 TypeScript 到 dist...
+        echo.
+        cd /d "%SCRIPT_DIR%"
+        call npm run build
+        if errorlevel 1 (
+            echo.
+            echo [警告] npm run build 失败，将尝试使用全局命令！
+        ) else (
+            echo [√] 本地构建完成！
+        )
+        echo.
+    )
+)
+
+:: 步骤4: 若脚本目录含本地构建，MCP 配置优先使用之（开发仓库场景）
 :: 使用 "node" 而非完整路径，避免 "Program Files" 空格导致配置写入失败
 set "CG_MCP_CMD=codegraph"
 set "CG_MCP_SCRIPT="
@@ -104,7 +136,7 @@ if exist "%MCP_CURSOR_LOCAL_CFG%" (
 
 cls
 echo ================================================
-echo(     CodeGraph 快速工具 v2.1
+echo(     CodeGraph 快速工具 v2.2
 echo(     语义代码知识图谱 --- 命令行助手
 echo ================================================
 echo.
