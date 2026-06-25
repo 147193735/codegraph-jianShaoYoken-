@@ -4,11 +4,11 @@
       "type": "stdio",
       "command": "node",
       "args": [
-        "D:\\LAYADOMO\\codegraph-jianShaoYoken\\dist\\bin\\codegraph.js",
+        "${workspaceFolder}\\dist\\bin\\codegraph.js",
         "serve",
         "--mcp",
         "--path",
-        "D:\\LAYADOMO\\codegraph-jianShaoYoken"
+        "${workspaceFolder}"
       ]
     }
   }
