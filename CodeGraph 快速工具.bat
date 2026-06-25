@@ -135,31 +135,9 @@ if exist "%MCP_CURSOR_LOCAL_CFG%" (
 )
 
 cls
-echo ================================================
-echo(     CodeGraph 快速工具 v2.2
-echo(     语义代码知识图谱 --- 命令行助手
-echo ================================================
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-menu.ps1" -CurrentDir "%CD%" -McpVscode "%MCP_VSCODE%" -McpCursor "%MCP_CURSOR%"
 echo.
-echo( 当前目录: %CD%
-echo( MCP 状态: VS Code=%MCP_VSCODE%  Cursor=%MCP_CURSOR%
-echo.
-echo( ---查看分析---     ---搜索追踪----------
-set "M1= [1]项目状态        [3]搜索符号   [4]查找调用者"
-set "M2= [2]文件结构        [5]查被调者   [6]影响分析"
-set "M3=                    [7]查找受影响测试"
-echo(!M1!
-echo(!M2!
-echo(!M3!
-echo.
-echo( ---索引维护---     ---服务与配置--------
-echo( [8]初始化项目      [11]MCP服务   [12]配置MCP(IDE)
-echo( [9]重新索引        [13]卸载配置   [14]帮助
-echo( [10]增量同步
-echo.
-echo( -----------------------------------------------
-echo(  [0]退出
-echo.
-set /p choice="请输入选项 (0-14): "
+set /p "choice=请输入选项 (0-14): "
 
 if "!choice!"=="1" goto status
 if "!choice!"=="2" goto files
@@ -180,29 +158,29 @@ goto menu
 
 :status
 cls
-echo ================================================
-echo(             项目状态检查
-echo ================================================
+echo ----------------------------------------------
+echo              项目状态检查
+echo ----------------------------------------------
 echo.
 call %CODEGRAPH% status
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :files
 cls
-echo ================================================
-echo(             项目文件结构
-echo ================================================
+echo ----------------------------------------------
+echo              项目文件结构
+echo ----------------------------------------------
 echo.
-echo(格式选项: tree(树形) flat(列表) grouped(按语言)
-set /p fmt="请输入格式 (默认 tree): "
+echo 格式选项: tree(树形) flat(列表) grouped(按语言)
+set /p "fmt=请输入格式 (默认 tree): "
 if "!fmt!"=="" set fmt=tree
 echo.
-echo(筛选目录(可选，直接回车跳过):
-set /p filter="请输入目录路径: "
+echo 筛选目录(可选，直接回车跳过):
+set /p "filter=请输入目录路径: "
 echo.
 if "!filter!"=="" (
     call %CODEGRAPH% files --format %fmt%
@@ -210,94 +188,94 @@ if "!filter!"=="" (
     call %CODEGRAPH% files --format %fmt% --filter "%filter%"
 )
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :query
 cls
-echo ================================================
-echo(             搜索代码符号
-echo ================================================
+echo ----------------------------------------------
+echo              搜索代码符号
+echo ----------------------------------------------
 echo.
-set /p symbol="请输入要搜索的符号名称: "
+set /p "symbol=请输入要搜索的符号名称: "
 if "!symbol!"=="" goto query
 echo.
-echo(正在搜索 "%symbol%"...
+echo 正在搜索 "%symbol%"...
 echo.
 call %CODEGRAPH% query "%symbol%"
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :callers
 cls
-echo ================================================
-echo(             查找调用者
-echo ================================================
+echo ----------------------------------------------
+echo              查找调用者
+echo ----------------------------------------------
 echo.
-set /p symbol="请输入符号名称: "
+set /p "symbol=请输入符号名称: "
 if "!symbol!"=="" goto callers
 echo.
-echo(正在查找 "%symbol%" 的调用者...
+echo 正在查找 "%symbol%" 的调用者...
 echo.
 call %CODEGRAPH% callers "%symbol%"
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :callees
 cls
-echo ================================================
-echo(             查找被调用者
-echo ================================================
+echo ----------------------------------------------
+echo              查找被调用者
+echo ----------------------------------------------
 echo.
-set /p symbol="请输入符号名称: "
+set /p "symbol=请输入符号名称: "
 if "!symbol!"=="" goto callees
 echo.
-echo(正在查找 "%symbol%" 调用了什么...
+echo 正在查找 "%symbol%" 调用了什么...
 echo.
 call %CODEGRAPH% callees "%symbol%"
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :impact
 cls
-echo ================================================
-echo(             分析变更影响
-echo ================================================
+echo ----------------------------------------------
+echo              分析变更影响
+echo ----------------------------------------------
 echo.
-set /p symbol="请输入要分析的符号名称: "
+set /p "symbol=请输入要分析的符号名称: "
 if "!symbol!"=="" goto impact
-set /p depth="请输入分析深度 (默认 2): "
+set /p "depth=请输入分析深度 (默认 2): "
 if "!depth!"=="" set depth=2
 echo.
-echo(正在分析 "%symbol%" 的影响范围 (深度=%depth%)...
+echo 正在分析 "%symbol%" 的影响范围 (深度=%depth%)...
 echo.
 call %CODEGRAPH% impact "%symbol%" --depth %depth%
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :affected
 cls
-echo ================================================
-echo(         查找受影响的测试文件
-echo ================================================
+echo ----------------------------------------------
+echo           查找受影响的测试文件
+echo ----------------------------------------------
 echo.
-echo(输入源文件路径(空格分隔多个文件^)
-echo(直接回车则对比最近一次 git 提交的变更
-echo(示例: src/utils.ts src/api.ts
+echo 输入源文件路径(空格分隔多个文件^)
+echo 直接回车则对比最近一次 git 提交的变更
+echo 示例: src/utils.ts src/api.ts
 echo.
 set /p files="请输入文件路径: "
 echo.
@@ -314,34 +292,34 @@ call %CODEGRAPH% affected %files%
 
 :affected_done
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :init
 cls
-echo ================================================
-echo(             初始化 CodeGraph
-echo ================================================
+echo ----------------------------------------------
+echo              初始化 CodeGraph
+echo ----------------------------------------------
 echo.
-echo(正在初始化项目并构建索引...
+echo 正在初始化项目并构建索引...
 echo.
 call %CODEGRAPH% init -i
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :index
 cls
-echo ================================================
-echo(             重新索引项目
-echo ================================================
+echo ----------------------------------------------
+echo              重新索引项目
+echo ----------------------------------------------
 echo.
-echo(警告: 将清除现有索引并重新构建!
-set /p confirm="确认重新索引? (y/n): "
+echo 警告: 将清除现有索引并重新构建!
+set /p "confirm=确认重新索引? (y/n): "
 if /i "!confirm!"=="y" (
     echo.
     echo 正在执行完整重新索引...
@@ -351,62 +329,62 @@ if /i "!confirm!"=="y" (
     echo 已取消。
 )
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :sync
 cls
-echo ================================================
-echo(             增量同步索引
-echo ================================================
+echo ----------------------------------------------
+echo              增量同步索引
+echo ----------------------------------------------
 echo.
-echo(正在同步最新的文件变更...
+echo 正在同步最新的文件变更...
 echo.
 call %CODEGRAPH% sync
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :serve
 cls
-echo ================================================
-echo(          启动 MCP 服务
-echo ================================================
+echo ----------------------------------------------
+echo             启动 MCP 服务
+echo ----------------------------------------------
 echo.
-echo(正在启动 MCP 服务...
-echo(按 Ctrl+C 停止服务
+echo 正在启动 MCP 服务...
+echo 按 Ctrl+C 停止服务
 echo.
 call %CODEGRAPH% serve --mcp
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :mcp_menu
 cls
-echo ================================================
-echo(        配置 MCP 集成 (VS Code / Cursor)
-echo ================================================
+echo ----------------------------------------------
+echo         配置 MCP 集成 (VS Code / Cursor)
+echo ----------------------------------------------
 echo.
-echo( VS Code 与 Cursor 使用独立配置文件，互不影响：
-echo(   VS Code  %%APPDATA%%\Code\User\mcp.json
-echo(   Cursor   项目 .cursor\mcp.json 或全局 %%USERPROFILE%%\.cursor\mcp.json
+echo  VS Code 与 Cursor 使用独立配置文件，互不影响：
+echo    VS Code   %%APPDATA%%\Code\User\mcp.json
+echo    Cursor    项目 .cursor\mcp.json 或全局 %%USERPROFILE%%\.cursor\mcp.json
 echo.
-echo( 当前状态: VS Code=%MCP_VSCODE%  Cursor=%MCP_CURSOR%
+echo  当前状态: VS Code=%MCP_VSCODE%  Cursor=%MCP_CURSOR%
 echo.
-echo( [1] 配置 VS Code Copilot MCP (用户级，所有项目通用)
-echo( [2] 配置 Cursor MCP (当前项目本地)
-echo( [3] 配置 Cursor MCP (全局，~/.cursor/mcp.json)
-echo( [4] 同时配置 VS Code + Cursor (当前项目)  ^<推荐^>
-echo( [5] 配置其他 AI 代理 (Claude/Codex/opencode...)
-echo( [0] 返回主菜单
+echo  [1] 配置 VS Code Copilot MCP (用户级，所有项目通用)
+echo  [2] 配置 Cursor MCP (当前项目本地)
+echo  [3] 配置 Cursor MCP (全局，~/.cursor/mcp.json)
+echo  [4] 同时配置 VS Code + Cursor (当前项目)  [推荐]
+echo  [5] 配置其他 AI 代理 (Claude/Codex/opencode...)
+echo  [0] 返回主菜单
 echo.
-set /p mcp_choice="请选择 (0-5): "
+set /p "mcp_choice=请选择 (0-5): "
 if "!mcp_choice!"=="1" goto mcp_config_vscode
 if "!mcp_choice!"=="2" goto mcp_config_cursor_local
 if "!mcp_choice!"=="3" goto mcp_config_cursor_global
@@ -418,33 +396,33 @@ goto mcp_menu
 :mcp_config_vscode
 call :mcp_write_vscode
 echo.
-echo [√] VS Code MCP 已写入: %MCP_VSCODE_CFG%
-echo     请重启 VS Code 使配置生效。
+echo [OK] VS Code MCP 已写入: %MCP_VSCODE_CFG%
+echo      请重启 VS Code 使配置生效。
 echo.
-echo ------------------------------------------------
-echo(按任意键返回...
+echo ----------------------------------------------
+echo 按任意键返回...
 pause >nul
 goto mcp_menu
 
 :mcp_config_cursor_local
 call :mcp_write_cursor_local
 echo.
-echo [√] Cursor MCP 已写入: %MCP_CURSOR_LOCAL_CFG%
-echo     请重启 Cursor 使配置生效。
+echo [OK] Cursor MCP 已写入: %MCP_CURSOR_LOCAL_CFG%
+echo      请重启 Cursor 使配置生效。
 echo.
-echo ------------------------------------------------
-echo(按任意键返回...
+echo ----------------------------------------------
+echo 按任意键返回...
 pause >nul
 goto mcp_menu
 
 :mcp_config_cursor_global
 call :mcp_write_cursor_global
 echo.
-echo [√] Cursor MCP 已写入: %MCP_CURSOR_GLOBAL_CFG%
-echo     请重启 Cursor 使配置生效。
+echo [OK] Cursor MCP 已写入: %MCP_CURSOR_GLOBAL_CFG%
+echo      请重启 Cursor 使配置生效。
 echo.
-echo ------------------------------------------------
-echo(按任意键返回...
+echo ----------------------------------------------
+echo 按任意键返回...
 pause >nul
 goto mcp_menu
 
@@ -452,28 +430,28 @@ goto mcp_menu
 call :mcp_write_vscode
 call :mcp_write_cursor_local
 echo.
-echo [√] 已同时配置 VS Code 与 Cursor (当前项目)
-echo     请分别重启 VS Code 和 Cursor。
+echo [OK] 已同时配置 VS Code 与 Cursor (当前项目)
+echo      请分别重启 VS Code 和 Cursor。
 echo.
-echo ------------------------------------------------
-echo(按任意键返回...
+echo ----------------------------------------------
+echo 按任意键返回...
 pause >nul
 goto mcp_menu
 
 :mcp_config_other
 cls
-echo ================================================
-echo(        配置其他 AI 代理
-echo ================================================
+echo ----------------------------------------------
+echo           配置其他 AI 代理
+echo ----------------------------------------------
 echo.
-echo(正在运行 CodeGraph 安装程序，将自动检测并配置：
-echo(  - Claude Code / Cursor / Codex / opencode 等
-echo(  注意: 此命令不会写入 VS Code 的 mcp.json
+echo 正在运行 CodeGraph 安装程序，将自动检测并配置：
+echo   - Claude Code / Cursor / Codex / opencode 等
+echo   注意: 此命令不会写入 VS Code 的 mcp.json
 echo.
 call %CODEGRAPH% install
 echo.
-echo ------------------------------------------------
-echo(按任意键返回...
+echo ----------------------------------------------
+echo 按任意键返回...
 pause >nul
 goto mcp_menu
 
@@ -524,13 +502,13 @@ exit /b 0
 
 :uninstall
 cls
-echo ================================================
-echo(             卸载 CodeGraph
-echo ================================================
+echo ----------------------------------------------
+echo              卸载 CodeGraph
+echo ----------------------------------------------
 echo.
-echo(警告: 这将从所有已配置的代理中移除 CodeGraph!
+echo 警告: 这将从所有已配置的代理中移除 CodeGraph!
 echo.
-set /p confirm="确认卸载? (y/n): "
+set /p "confirm=确认卸载? (y/n): "
 if /i "!confirm!"=="y" (
     call %CODEGRAPH% uninstall
     echo.
@@ -539,36 +517,36 @@ if /i "!confirm!"=="y" (
     echo 已取消。
 )
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
 :help
 cls
-echo ================================================
-echo(             帮助信息
-echo ================================================
+echo ----------------------------------------------
+echo              帮助信息
+echo ----------------------------------------------
 echo.
-echo(CodeGraph 是一个本地优先的语义代码知识图谱工具。
-echo(它为 AI 编码助手(Claude Code、Cursor、VS Code Copilot 等)
-echo(提供代码结构查询能力，比传统的 grep/搜索快 70%%。
+echo CodeGraph 是一个本地优先的语义代码知识图谱工具。
+echo 它为 AI 编码助手(Claude Code、Cursor、VS Code Copilot 等)
+echo 提供代码结构查询能力，比传统的 grep/搜索快 70%。
 echo.
-echo(主要功能:
-echo(  * 代码符号索引 --- 函数、类、方法、变量等
-echo(  * 调用关系追踪 --- 调用者/被调用者分析
-echo(  * 影响范围分析 --- 修改前评估影响
-echo(  * 全文本搜索 --- 基于 FTS5 的快速搜索
-echo(  * 自动同步 --- 文件变更后自动更新索引
-echo(  * 20+ 语言支持 --- TS/JS/Python/Go/Rust/Java 等
-echo(  * 框架感知路由 --- Django/Flask/Express/Spring 等
+echo 主要功能:
+echo   * 代码符号索引 --- 函数、类、方法、变量等
+echo   * 调用关系追踪 --- 调用者/被调用者分析
+echo   * 影响范围分析 --- 修改前评估影响
+echo   * 全文本搜索 --- 基于 FTS5 的快速搜索
+echo   * 自动同步 --- 文件变更后自动更新索引
+echo   * 20+ 语言支持 --- TS/JS/Python/Go/Rust/Java 等
+echo   * 框架感知路由 --- Django/Flask/Express/Spring 等
 echo.
-echo(拖放用法: 将项目文件夹拖到此 .bat 文件上即可直接操作
+echo 拖放用法: 将项目文件夹拖到此 .bat 文件上即可直接操作
 echo.
-echo(更多信息: https://colbymchenry.github.io/codegraph/
+echo 更多信息: https://colbymchenry.github.io/codegraph/
 echo.
-echo ------------------------------------------------
-echo(按任意键返回主菜单...
+echo ----------------------------------------------
+echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
@@ -577,7 +555,7 @@ goto menu
 :: ============================================
 :safe_exit
 echo.
-echo(感谢使用 CodeGraph！
+echo 感谢使用 CodeGraph！
 pause >nul
 exit /b
 
