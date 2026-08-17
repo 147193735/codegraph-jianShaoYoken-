@@ -19,8 +19,8 @@ if errorlevel 1 (
     ) else (
         echo [错误] 未检测到 Node.js！
         echo.
-        echo CodeGraph 需要 Node.js ^>=18 运行环境。
-        echo 请先从 https://nodejs.org 下载安装 Node.js LTS 版本。
+        echo CodeGraph 需要 Node.js ^>=20 且 ^<25 运行环境。
+        echo 请先从 https://nodejs.org 下载安装 Node.js 20 或 22 LTS 版本。
         echo.
         pause
         exit /b 1
