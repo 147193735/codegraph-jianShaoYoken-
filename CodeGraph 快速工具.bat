@@ -1,4 +1,11 @@
-﻿@echo off
+@echo off
+goto :cg_main
+
+:ui
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-ui.ps1" -Screen "%~1" -McpVscode "%~2" -McpCursor "%~3" -McpCodex "%~4"
+exit /b 0
+
+:cg_main
 chcp 65001 >nul 2>&1
 title CodeGraph
 color 0B
@@ -124,6 +131,7 @@ if exist "%MCP_CODEX_CFG%" (
 cls
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-menu.ps1" -CurrentDir "%CD%" -McpVscode "%MCP_VSCODE%" -McpCursor "%MCP_CURSOR%" -McpCodex "%MCP_CODEX%"
 call :ui main-prompt
+set "choice="
 set /p "choice="
 
 if "!choice!"=="1" goto status
@@ -154,9 +162,11 @@ goto menu
 :files
 cls
 call :ui files
+set "fmt="
 set /p "fmt="
 if "!fmt!"=="" set fmt=tree
 call :ui files-filter
+set "filter="
 set /p "filter="
 echo.
 if "!filter!"=="" (
@@ -171,6 +181,7 @@ goto menu
 :query
 cls
 call :ui search-symbol
+set "symbol="
 set /p "symbol="
 if "!symbol!"=="" goto query
 call :ui search-running
@@ -182,6 +193,7 @@ goto menu
 :callers
 cls
 call :ui find-callers
+set "symbol="
 set /p "symbol="
 if "!symbol!"=="" goto callers
 call :ui find-callers-running
@@ -193,6 +205,7 @@ goto menu
 :callees
 cls
 call :ui find-callees
+set "symbol="
 set /p "symbol="
 if "!symbol!"=="" goto callees
 call :ui find-callees-running
@@ -204,9 +217,11 @@ goto menu
 :impact
 cls
 call :ui impact
+set "symbol="
 set /p "symbol="
 if "!symbol!"=="" goto impact
 call :ui impact-depth
+set "depth="
 set /p "depth="
 if "!depth!"=="" set depth=2
 call :ui impact-running
@@ -218,6 +233,7 @@ goto menu
 :affected
 cls
 call :ui affected
+set "files="
 set /p files=
 echo.
 if not "!files!"=="" goto :affected_files
@@ -245,6 +261,7 @@ goto menu
 :index
 cls
 call :ui reindex
+set "confirm="
 set /p "confirm="
 if /i "!confirm!"=="y" (
     call :ui reindex-running
@@ -275,6 +292,7 @@ goto menu
 :mcp_menu
 cls
 call :ui mcp-menu "%MCP_VSCODE%" "%MCP_CURSOR%" "%MCP_CODEX%"
+set "mcp_choice="
 set /p "mcp_choice="
 if "!mcp_choice!"=="1" goto mcp_config_vscode
 if "!mcp_choice!"=="2" goto mcp_config_cursor_local
@@ -383,6 +401,7 @@ exit /b 0
 :uninstall
 cls
 call :ui uninstall
+set "confirm="
 set /p "confirm="
 if /i "!confirm!"=="y" (
     call %CODEGRAPH% uninstall
@@ -431,7 +450,3 @@ if not errorlevel 1 exit /b 0
 call :ui node-fts5-missing
 pause >nul
 exit /b 1
-
-:ui
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-ui.ps1" -Screen "%~1" -McpVscode "%~2" -McpCursor "%~3" -McpCodex "%~4"
-exit /b 0
