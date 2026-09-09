@@ -24,7 +24,7 @@ import {
   Location,
   WriteResult,
 } from './types';
-import { atomicWriteFileSync } from './shared';
+import { atomicWriteFileSync, getMcpServerConfig } from './shared';
 
 type LineRange = { start: number; end: number };
 
@@ -250,16 +250,20 @@ function escapeRegExp(value: string): string {
 }
 
 function renderCodeGraphMcpChild(): string[] {
+  const mcp = getMcpServerConfig();
   return [
     '  codegraph:',
-    '    command: codegraph',
+    `    command: ${renderYamlScalar(mcp.command)}`,
     '    args:',
-    '      - serve',
-    '      - --mcp',
+    ...mcp.args.map((arg) => `      - ${renderYamlScalar(arg)}`),
     '    timeout: 120',
     '    connect_timeout: 60',
     '    enabled: true',
   ];
+}
+
+function renderYamlScalar(value: string): string {
+  return /^[A-Za-z0-9._/-]+$/.test(value) ? value : JSON.stringify(value);
 }
 
 function renderCodeGraphMcpBlock(): string[] {

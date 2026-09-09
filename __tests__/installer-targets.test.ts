@@ -221,6 +221,35 @@ describe('Installer targets — partial-state idempotency', () => {
     for (const f of second.files) expect(f.action).toBe('unchanged');
   });
 
+  it('uses an explicit local build runtime for Codex and opencode MCP entries', () => {
+    const previousCommand = process.env.CODEGRAPH_MCP_COMMAND;
+    const previousScript = process.env.CODEGRAPH_MCP_SCRIPT;
+    const script = 'C:\\codegraph-dev\\dist\\bin\\codegraph.js';
+    process.env.CODEGRAPH_MCP_COMMAND = 'node';
+    process.env.CODEGRAPH_MCP_SCRIPT = script;
+
+    try {
+      const codex = getTarget('codex')!;
+      codex.install('global', { autoAllow: false });
+      const toml = fs.readFileSync(path.join(tmpHome, '.codex', 'config.toml'), 'utf-8');
+      expect(toml).toContain('command = "node"');
+      expect(toml).toContain(script.replace(/\\/g, '\\\\'));
+      expect(toml).toContain('"serve", "--mcp"');
+
+      const opencode = getTarget('opencode')!;
+      opencode.install('global', { autoAllow: false });
+      const config = parseJsonc(
+        fs.readFileSync(path.join(tmpHome, '.config', 'opencode', 'opencode.jsonc'), 'utf-8'),
+      ) as { mcp: { codegraph: { command: string[] } } };
+      expect(config.mcp.codegraph.command).toEqual(['node', script, 'serve', '--mcp']);
+    } finally {
+      if (previousCommand === undefined) delete process.env.CODEGRAPH_MCP_COMMAND;
+      else process.env.CODEGRAPH_MCP_COMMAND = previousCommand;
+      if (previousScript === undefined) delete process.env.CODEGRAPH_MCP_SCRIPT;
+      else process.env.CODEGRAPH_MCP_SCRIPT = previousScript;
+    }
+  });
+
   it('codex: install replaces a legacy AGENTS.md codegraph block with the current one, keeping user content', () => {
     const codex = getTarget('codex')!;
     const dir = path.join(tmpHome, '.codex');

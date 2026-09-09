@@ -47,6 +47,7 @@ import {
 } from './types';
 import {
   atomicWriteFileSync,
+  getMcpServerConfig,
   jsonDeepEqual,
   removeMarkedSection,
   upsertInstructionsEntry,
@@ -116,9 +117,10 @@ function parseConfig(text: string): Record<string, any> {
 }
 
 function getOpencodeServerEntry(): { type: string; command: string[]; enabled: boolean } {
+  const mcp = getMcpServerConfig();
   return {
     type: 'local',
-    command: ['codegraph', 'serve', '--mcp'],
+    command: [mcp.command, ...mcp.args],
     enabled: true,
   };
 }

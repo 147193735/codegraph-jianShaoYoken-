@@ -65,6 +65,7 @@ import {
   WriteResult,
 } from './types';
 import {
+  getMcpServerConfig,
   jsonDeepEqual,
   readJsonFile,
   writeJsonFile,
@@ -140,9 +141,12 @@ function resolveCodegraphCommand(): string {
  * header.
  */
 function buildAntigravityEntry(): { command: string; args: string[] } {
+  const mcp = getMcpServerConfig();
   return {
-    command: resolveCodegraphCommand(),
-    args: ['serve', '--mcp'],
+    // An explicit local runtime from the launcher takes precedence over
+    // the macOS PATH workaround below.
+    command: mcp.command === 'codegraph' ? resolveCodegraphCommand() : mcp.command,
+    args: mcp.args,
   };
 }
 

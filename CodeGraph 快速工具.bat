@@ -4,13 +4,13 @@ title CodeGraph 快速工具 v2.2
 color 0B
 setlocal enabledelayedexpansion
 
-:: ============================================
-:: CodeGraph 检测与自动安装
-:: ============================================
+rem ============================================
+rem CodeGraph detection and setup
+rem ============================================
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-:: 步骤1: 检测 Node.js
+rem Step 1: detect Node.js
 set "NODE_CMD=node"
 where node 2>nul >nul
 if errorlevel 1 (
@@ -27,10 +27,10 @@ if errorlevel 1 (
     )
 )
 
-:: 步骤2: 检测 codegraph（全局安装优先）
+rem Step 2: detect the global codegraph CLI
 where codegraph 2>nul >nul
 if errorlevel 1 (
-    :: 未找到，自动全局安装
+    rem Install globally only when unavailable.
     echo.
     echo [*] 未检测到 CodeGraph，正在自动全局安装...
     echo [*] npm i -g @colbymchenry/codegraph
@@ -50,13 +50,13 @@ if errorlevel 1 (
 )
 set "CODEGRAPH=codegraph"
 
-:: 步骤3: 本地开发仓库 — 自动安装依赖并构建
-:: 当脚本位于 codegraph 仓库中（有 package.json），确保 node_modules 和 dist 就绪
+rem Step 3: prepare a local development checkout
+rem Ensure dependencies and dist are available when package.json is present.
 if exist "%SCRIPT_DIR%\package.json" (
     echo.
     echo [*] 检测到本地开发仓库，正在检查构建环境...
 
-    :: 3a. 安装依赖（node_modules/typescript 缺失时自动执行）
+    rem Install dependencies when TypeScript is missing.
     if not exist "%SCRIPT_DIR%\node_modules\typescript" (
         echo [*] npm install -- 安装项目依赖...
         echo.
@@ -69,7 +69,7 @@ if exist "%SCRIPT_DIR%\package.json" (
         echo.
     )
 
-    :: 3b. 构建项目（dist/bin/codegraph.js 缺失时自动执行）
+    rem Build the local CLI when its entry point is missing.
     if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
         echo [*] npm run build -- 编译 TypeScript 到 dist...
         echo.
@@ -85,23 +85,28 @@ if exist "%SCRIPT_DIR%\package.json" (
     )
 )
 
-:: 步骤4: 若脚本目录含本地构建，MCP 配置优先使用之（开发仓库场景）
-:: 使用 "node" 而非完整路径，避免 "Program Files" 空格导致配置写入失败
+rem Step 4: prefer the local build and pin MCP entries to it.
+rem Fall back to the global codegraph command only when no local build exists.
 set "CG_MCP_CMD=codegraph"
 set "CG_MCP_SCRIPT="
+set "CODEGRAPH_MCP_COMMAND="
+set "CODEGRAPH_MCP_SCRIPT="
 if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
+    set "CODEGRAPH=node "%SCRIPT_DIR%\dist\bin\codegraph.js""
     set "CG_MCP_CMD=node"
     set "CG_MCP_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
+    set "CODEGRAPH_MCP_COMMAND=node"
+    set "CODEGRAPH_MCP_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
 )
 
 :detect_done
 
-:: ============================================
-:: 拖放支持：拖入文件夹后自动切换到目标目录
-:: ============================================
+rem ============================================
+rem Drag-and-drop target directory support
+rem ============================================
 if not "%~1"=="" (
     set "TARGET=%~1"
-    :: 如果拖入的是快捷方式(.lnk)，自动解析目标路径
+    rem Resolve a dropped shortcut before changing directories.
     if /i "%~x1"==".lnk" (
         for /f "delims=" %%t in ('powershell -NoProfile -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%~f1'); Write-Output $s.TargetPath" 2^>nul') do set "TARGET=%%t"
         if "!TARGET!"=="%~f1" (
@@ -119,7 +124,7 @@ if not "%~1"=="" (
 )
 
 :menu
-:: 检测 VS Code / Cursor MCP 配置状态（两者互不影响，各自独立配置文件）
+rem Detect VS Code and Cursor MCP configuration independently.
 set "MCP_VSCODE=OFF"
 set "MCP_CURSOR=OFF"
 set "MCP_VSCODE_CFG=%APPDATA%\Code\User\mcp.json"
@@ -439,25 +444,26 @@ pause >nul
 goto mcp_menu
 
 :mcp_config_other
+@echo off
 cls
 echo ----------------------------------------------
-echo           配置其他 AI 代理
+echo        Apply Fixed Global MCP Setup
 echo ----------------------------------------------
 echo.
-echo 正在运行 CodeGraph 安装程序，将自动检测并配置：
-echo   - Claude Code / Cursor / Codex / opencode 等
-echo   注意: 此命令不会写入 VS Code 的 mcp.json
+echo Targets: Claude Code, Cursor, Codex CLI, VS Code Copilot
+echo Scope: all projects
+echo Claude permissions and context injection: enabled
 echo.
-call %CODEGRAPH% install
+call %CODEGRAPH% install --target=claude,cursor,codex,copilot-vscode --location=global --yes
 echo.
 echo ----------------------------------------------
-echo 按任意键返回...
+echo Press any key to return...
 pause >nul
 goto mcp_menu
 
-:: ============================================
-:: MCP 配置写入 (PowerShell JSON 合并)
-:: ============================================
+rem ============================================
+rem MCP configuration writer
+rem ============================================
 :mcp_write_vscode
 set "MCP_WRITE_CFG=%MCP_VSCODE_CFG%"
 set "MCP_WRITE_KEY=servers"
@@ -550,14 +556,14 @@ echo 按任意键返回主菜单...
 pause >nul
 goto menu
 
-:: ============================================
-:: 安全退出 & 兜底（防止窗口意外关闭）
-:: ============================================
+rem ============================================
+rem Safe exit and fall-through guard
+rem ============================================
 :safe_exit
 echo.
 echo 感谢使用 CodeGraph！
 pause >nul
 exit /b
 
-:: 兜底：万一脚本执行流到达此处，回到菜单
+rem Return to the menu if execution reaches this point.
 goto menu

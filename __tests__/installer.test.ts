@@ -86,6 +86,20 @@ describe('Installer Config Writer', () => {
       warnSpy.mockRestore();
     });
 
+    it('should preserve a valid UTF-8 BOM-prefixed config', () => {
+      const mcpJson = path.join(tempDir, '.mcp.json');
+      fs.writeFileSync(mcpJson, '\uFEFF' + JSON.stringify({
+        mcpServers: { other: { command: 'other-tool' } },
+      }, null, 2));
+
+      writeMcpConfig('local');
+
+      expect(fs.existsSync(mcpJson + '.backup')).toBe(false);
+      const content = JSON.parse(fs.readFileSync(mcpJson, 'utf-8').replace(/^\uFEFF/, ''));
+      expect(content.mcpServers.other).toBeDefined();
+      expect(content.mcpServers.codegraph).toBeDefined();
+    });
+
     it('should preserve existing valid config when adding codegraph', () => {
       const mcpJson = path.join(tempDir, '.mcp.json');
       fs.writeFileSync(mcpJson, JSON.stringify({
