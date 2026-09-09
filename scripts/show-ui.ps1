@@ -100,7 +100,7 @@ switch ($Screen) {
     }
     "dependencies-failed" {
         Write-Host ""
-        Write-Host "[警告] 项目依赖安装失败，部分功能可能不可用。"
+        Write-Host "[错误] 项目依赖安装失败，请检查上方输出后重新运行本工具。"
     }
     "build-start" {
         Write-Host "[*] 正在编译 TypeScript 构建文件..."
@@ -108,7 +108,7 @@ switch ($Screen) {
     }
     "build-failed" {
         Write-Host ""
-        Write-Host "[警告] 本地构建失败，将尝试使用全局 CodeGraph 命令。"
+        Write-Host "[错误] 本地构建失败，请检查上方输出后重新运行本工具。"
     }
     "build-complete" {
         Write-Host "[完成] 本地构建完成。"

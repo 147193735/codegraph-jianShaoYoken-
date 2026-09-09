@@ -14,6 +14,10 @@ exit /b %ERRORLEVEL%
 "%NODE_CMD%" "%CG_LOCAL_SCRIPT%" %*
 exit /b %ERRORLEVEL%
 
+:cg_setup_failed
+pause >nul
+exit /b 1
+
 :cg_main
 chcp 65001 >nul 2>&1
 title CodeGraph
@@ -36,13 +40,8 @@ if not defined NODE_CMD if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_CMD=
 call :ensure_node_fts5
 if errorlevel 1 exit /b 1
 
-rem Step 2: require the global CLI only when no local build is available.
-if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" call :ensure_global_codegraph
-if errorlevel 1 exit /b 1
-
-rem Step 3: prepare a local development checkout
-rem Ensure dependencies and dist are available when package.json is present.
-if exist "%SCRIPT_DIR%\package.json" (
+rem Step 2: prepare a local development checkout before considering a global CLI.
+if exist "%SCRIPT_DIR%\src\bin\codegraph.ts" (
     call :ui local-check
 
     rem Install dependencies when TypeScript is missing.
@@ -52,22 +51,31 @@ if exist "%SCRIPT_DIR%\package.json" (
         call npm install
         if errorlevel 1 (
             call :ui dependencies-failed
+            goto :cg_setup_failed
         )
         echo.
     )
 
-    rem Build the local CLI when its entry point is missing.
-    if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
+    rem Rebuild missing or stale output, including newly added installer targets.
+    "%NODE_CMD%" "%SCRIPT_DIR%\scripts\check-local-build.js" "%SCRIPT_DIR%"
+    if errorlevel 1 (
         call :ui build-start
         cd /d "%SCRIPT_DIR%"
         call npm run build
         if errorlevel 1 (
             call :ui build-failed
+            goto :cg_setup_failed
         ) else (
             call :ui build-complete
         )
         echo.
     )
+)
+
+rem Step 3: require the global CLI only when no local build is available.
+if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
+    call :ensure_global_codegraph
+    if errorlevel 1 exit /b 1
 )
 
 rem Step 4: prefer the local build and pin MCP entries to it.

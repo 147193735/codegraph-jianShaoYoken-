@@ -1338,6 +1338,14 @@ describe('Installer targets — registry', () => {
   it('resolveTargetFlag throws on unknown id', () => {
     expect(() => resolveTargetFlag('claude,bogus', 'global')).toThrow(/Unknown --target/);
   });
+
+  it('accepts every target in the Windows quick tool global MCP command', () => {
+    const menu = fs.readFileSync(path.resolve(__dirname, '../CodeGraph 快速工具.bat'), 'utf8');
+    const csv = menu.match(/install --target=(claude,[\w,-]+) --location=global --yes/)![1];
+    const targets = resolveTargetFlag(csv, 'global');
+    expect(targets.map((t) => t.id)).toEqual(['claude', 'cursor', 'codex', 'copilot-vscode']);
+    expect(targets.every((t) => t.supportsLocation('global'))).toBe(true);
+  });
 });
 
 describe('Installer targets — TOML serializer (Codex backbone)', () => {
