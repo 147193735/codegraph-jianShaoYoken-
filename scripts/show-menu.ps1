@@ -6,13 +6,26 @@
 )
 
 $top = "----------------------------------------------"
+
+function Convert-McpStatus([string]$Status) {
+    switch ($Status) {
+        "ON" { return "已配置" }
+        "LOCAL" { return "当前项目" }
+        "GLOBAL" { return "全局" }
+        default { return "未配置" }
+    }
+}
+
+$vscodeStatus = Convert-McpStatus $McpVscode
+$cursorStatus = Convert-McpStatus $McpCursor
+$codexStatus = Convert-McpStatus $McpCodex
 Write-Host $top
 Write-Host "     CodeGraph 快速工具 v2.3"
 Write-Host "     语义代码知识图谱 --- 命令行助手"
 Write-Host $top
 Write-Host ""
 Write-Host " 当前目录: $CurrentDir"
-Write-Host " MCP 状态: VS Code=$McpVscode  Cursor=$McpCursor  Codex=$McpCodex"
+Write-Host " MCP 状态: VS Code=$vscodeStatus  Cursor=$cursorStatus  Codex=$codexStatus"
 Write-Host $top
 Write-Host ""
 Write-Host " [查看分析]"
