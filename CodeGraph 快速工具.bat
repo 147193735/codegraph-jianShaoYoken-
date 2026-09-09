@@ -1,6 +1,6 @@
 ﻿@echo off
 chcp 65001 >nul 2>&1
-title CodeGraph 快速工具 v2.2
+title CodeGraph 快速工具 v2.3
 color 0B
 setlocal enabledelayedexpansion
 
@@ -119,12 +119,14 @@ if not "%~1"=="" (
 )
 
 :menu
-:: 检测 VS Code / Cursor MCP 配置状态（两者互不影响，各自独立配置文件）
+:: 检测 VS Code / Cursor / Codex MCP 配置状态（各自独立配置文件）
 set "MCP_VSCODE=OFF"
 set "MCP_CURSOR=OFF"
+set "MCP_CODEX=OFF"
 set "MCP_VSCODE_CFG=%APPDATA%\Code\User\mcp.json"
 set "MCP_CURSOR_LOCAL_CFG=%CD%\.cursor\mcp.json"
 set "MCP_CURSOR_GLOBAL_CFG=%USERPROFILE%\.cursor\mcp.json"
+set "MCP_CODEX_CFG=%USERPROFILE%\.codex\config.toml"
 if exist "%MCP_VSCODE_CFG%" (
     findstr /i "codegraph" "%MCP_VSCODE_CFG%" >nul 2>&1 && set "MCP_VSCODE=ON"
 )
@@ -133,9 +135,12 @@ if exist "%MCP_CURSOR_LOCAL_CFG%" (
 ) else if exist "%MCP_CURSOR_GLOBAL_CFG%" (
     findstr /i "codegraph" "%MCP_CURSOR_GLOBAL_CFG%" >nul 2>&1 && set "MCP_CURSOR=GLOBAL"
 )
+if exist "%MCP_CODEX_CFG%" (
+    findstr /i "mcp_servers.codegraph" "%MCP_CODEX_CFG%" >nul 2>&1 && set "MCP_CODEX=ON"
+)
 
 cls
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-menu.ps1" -CurrentDir "%CD%" -McpVscode "%MCP_VSCODE%" -McpCursor "%MCP_CURSOR%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-menu.ps1" -CurrentDir "%CD%" -McpVscode "%MCP_VSCODE%" -McpCursor "%MCP_CURSOR%" -McpCodex "%MCP_CODEX%"
 echo.
 set /p "choice=请输入选项 (0-14): "
 
@@ -368,28 +373,31 @@ goto menu
 :mcp_menu
 cls
 echo ----------------------------------------------
-echo         配置 MCP 集成 (VS Code / Cursor)
+echo      配置 MCP 集成 (VS Code / Cursor / Codex)
 echo ----------------------------------------------
 echo.
-echo  VS Code 与 Cursor 使用独立配置文件，互不影响：
+echo  VS Code、Cursor 与 Codex 使用独立配置文件，互不影响：
 echo    VS Code   %%APPDATA%%\Code\User\mcp.json
 echo    Cursor    项目 .cursor\mcp.json 或全局 %%USERPROFILE%%\.cursor\mcp.json
+echo    Codex     %%USERPROFILE%%\.codex\config.toml (用户级)
 echo.
-echo  当前状态: VS Code=%MCP_VSCODE%  Cursor=%MCP_CURSOR%
+echo  当前状态: VS Code=%MCP_VSCODE%  Cursor=%MCP_CURSOR%  Codex=%MCP_CODEX%
 echo.
 echo  [1] 配置 VS Code Copilot MCP (用户级，所有项目通用)
 echo  [2] 配置 Cursor MCP (当前项目本地)
 echo  [3] 配置 Cursor MCP (全局，~/.cursor/mcp.json)
 echo  [4] 同时配置 VS Code + Cursor (当前项目)  [推荐]
-echo  [5] 配置其他 AI 代理 (Claude/Codex/opencode...)
+echo  [5] 注册 Codex MCP (用户级，所有 Codex 项目)
+echo  [6] 配置其他 AI 代理 (Claude/opencode...)
 echo  [0] 返回主菜单
 echo.
-set /p "mcp_choice=请选择 (0-5): "
+set /p "mcp_choice=请选择 (0-6): "
 if "!mcp_choice!"=="1" goto mcp_config_vscode
 if "!mcp_choice!"=="2" goto mcp_config_cursor_local
 if "!mcp_choice!"=="3" goto mcp_config_cursor_global
 if "!mcp_choice!"=="4" goto mcp_config_both
-if "!mcp_choice!"=="5" goto mcp_config_other
+if "!mcp_choice!"=="5" goto mcp_config_codex
+if "!mcp_choice!"=="6" goto mcp_config_other
 if "!mcp_choice!"=="0" goto menu
 goto mcp_menu
 
@@ -438,6 +446,36 @@ echo 按任意键返回...
 pause >nul
 goto mcp_menu
 
+:mcp_config_codex
+cls
+echo ----------------------------------------------
+echo          注册 Codex MCP (用户级)
+echo ----------------------------------------------
+echo.
+echo 将把 CodeGraph 注册到所有 Codex 项目的 MCP 配置：
+echo   %%USERPROFILE%%\.codex\config.toml
+echo.
+echo 正在注册...
+echo.
+if defined CG_MCP_SCRIPT (
+    call "%NODE_CMD%" "%CG_MCP_SCRIPT%" install --target=codex --location=global --yes
+) else (
+    call %CODEGRAPH% install --target=codex --location=global --yes
+)
+if errorlevel 1 (
+    echo.
+    echo [错误] Codex MCP 注册失败。请查看上方输出。
+) else (
+    echo.
+    echo [OK] Codex MCP 已注册。
+    echo      请重启 Codex 或新建会话以加载 codegraph_explore 工具。
+)
+echo.
+echo ----------------------------------------------
+echo 按任意键返回...
+pause >nul
+goto mcp_menu
+
 :mcp_config_other
 cls
 echo ----------------------------------------------
@@ -445,7 +483,7 @@ echo           配置其他 AI 代理
 echo ----------------------------------------------
 echo.
 echo 正在运行 CodeGraph 安装程序，将自动检测并配置：
-echo   - Claude Code / Cursor / Codex / opencode 等
+echo   - Claude Code / Cursor / opencode 等
 echo   注意: 此命令不会写入 VS Code 的 mcp.json
 echo.
 call %CODEGRAPH% install
