@@ -5,6 +5,15 @@ goto :cg_main
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-ui.ps1" -Screen "%~1" -McpVscode "%~2" -McpCursor "%~3" -McpCodex "%~4"
 exit /b 0
 
+:run_codegraph
+if defined CG_LOCAL_SCRIPT goto :run_local_codegraph
+codegraph %*
+exit /b %ERRORLEVEL%
+
+:run_local_codegraph
+"%NODE_CMD%" "%CG_LOCAL_SCRIPT%" %*
+exit /b %ERRORLEVEL%
+
 :cg_main
 chcp 65001 >nul 2>&1
 title CodeGraph
@@ -18,26 +27,18 @@ set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 call :ui set-title
 
-rem Step 1: detect Node.js
-set "NODE_CMD=node"
+rem Step 1: detect a compatible Node.js runtime or prepare an isolated one.
+set "NODE_CMD="
 where node 2>nul >nul
-if errorlevel 1 (
-    if exist "%ProgramFiles%\nodejs\node.exe" (
-        set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
-    ) else (
-        call :ui node-missing
-        pause >nul
-        exit /b 1
-    )
-)
+if not errorlevel 1 set "NODE_CMD=node"
+if not defined NODE_CMD if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
 
-call :verify_node_fts5
+call :ensure_node_fts5
 if errorlevel 1 exit /b 1
 
 rem Step 2: require the global CLI only when no local build is available.
 if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" call :ensure_global_codegraph
 if errorlevel 1 exit /b 1
-set "CODEGRAPH=codegraph"
 
 rem Step 3: prepare a local development checkout
 rem Ensure dependencies and dist are available when package.json is present.
@@ -71,16 +72,13 @@ if exist "%SCRIPT_DIR%\package.json" (
 
 rem Step 4: prefer the local build and pin MCP entries to it.
 rem Fall back to the global codegraph command only when no local build exists.
+set "CG_LOCAL_SCRIPT="
 set "CG_MCP_CMD=codegraph"
 set "CG_MCP_SCRIPT="
-set "CODEGRAPH_MCP_COMMAND="
-set "CODEGRAPH_MCP_SCRIPT="
 if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
-    set "CODEGRAPH=node "%SCRIPT_DIR%\dist\bin\codegraph.js""
-    set "CG_MCP_CMD=node"
+    set "CG_LOCAL_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
+    set "CG_MCP_CMD=%NODE_CMD%"
     set "CG_MCP_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
-    set "CODEGRAPH_MCP_COMMAND=node"
-    set "CODEGRAPH_MCP_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
 )
 
 :detect_done
@@ -154,7 +152,7 @@ goto menu
 :status
 cls
 call :ui status
-call %CODEGRAPH% status
+call :run_codegraph status
 call :ui return-main
 pause >nul
 goto menu
@@ -170,9 +168,9 @@ set "filter="
 set /p "filter="
 echo.
 if "!filter!"=="" (
-    call %CODEGRAPH% files --format %fmt%
+    call :run_codegraph files --format %fmt%
 ) else (
-    call %CODEGRAPH% files --format %fmt% --filter "%filter%"
+    call :run_codegraph files --format %fmt% --filter "%filter%"
 )
 call :ui return-main
 pause >nul
@@ -185,7 +183,7 @@ set "symbol="
 set /p "symbol="
 if "!symbol!"=="" goto query
 call :ui search-running
-call %CODEGRAPH% query "%symbol%"
+call :run_codegraph query "%symbol%"
 call :ui return-main
 pause >nul
 goto menu
@@ -197,7 +195,7 @@ set "symbol="
 set /p "symbol="
 if "!symbol!"=="" goto callers
 call :ui find-callers-running
-call %CODEGRAPH% callers "%symbol%"
+call :run_codegraph callers "%symbol%"
 call :ui return-main
 pause >nul
 goto menu
@@ -209,7 +207,7 @@ set "symbol="
 set /p "symbol="
 if "!symbol!"=="" goto callees
 call :ui find-callees-running
-call %CODEGRAPH% callees "%symbol%"
+call :run_codegraph callees "%symbol%"
 call :ui return-main
 pause >nul
 goto menu
@@ -225,7 +223,7 @@ set "depth="
 set /p "depth="
 if "!depth!"=="" set depth=2
 call :ui impact-running
-call %CODEGRAPH% impact "%symbol%" --depth %depth%
+call :run_codegraph impact "%symbol%" --depth %depth%
 call :ui return-main
 pause >nul
 goto menu
@@ -238,12 +236,16 @@ set /p files=
 echo.
 if not "!files!"=="" goto :affected_files
 call :ui affected-git
-git diff --name-only HEAD~1 2>nul | %CODEGRAPH% affected --stdin
+if defined CG_LOCAL_SCRIPT (
+    git diff --name-only HEAD~1 2>nul | "%NODE_CMD%" "%CG_LOCAL_SCRIPT%" affected --stdin
+) else (
+    git diff --name-only HEAD~1 2>nul | codegraph affected --stdin
+)
 goto :affected_done
 
 :affected_files
 call :ui affected-files
-call %CODEGRAPH% affected %files%
+call :run_codegraph affected %files%
 
 :affected_done
 call :ui return-main
@@ -253,7 +255,7 @@ goto menu
 :init
 cls
 call :ui initialize
-call %CODEGRAPH% init -i
+call :run_codegraph init -i
 call :ui return-main
 pause >nul
 goto menu
@@ -265,7 +267,7 @@ set "confirm="
 set /p "confirm="
 if /i "!confirm!"=="y" (
     call :ui reindex-running
-    call %CODEGRAPH% index --force
+    call :run_codegraph index --force
 ) else (
     call :ui cancelled
 )
@@ -276,7 +278,7 @@ goto menu
 :sync
 cls
 call :ui sync
-call %CODEGRAPH% sync
+call :run_codegraph sync
 call :ui return-main
 pause >nul
 goto menu
@@ -284,7 +286,7 @@ goto menu
 :serve
 cls
 call :ui serve
-call %CODEGRAPH% serve --mcp
+call :run_codegraph serve --mcp
 call :ui return-main
 pause >nul
 goto menu
@@ -331,7 +333,7 @@ goto mcp_menu
 :mcp_config_codex
 cls
 call :ui mcp-codex
-call %CODEGRAPH% install --target=codex --location=global --yes
+call :run_codegraph install --target=codex --location=global --yes
 if errorlevel 1 (
     call :ui mcp-codex-failed
 ) else (
@@ -344,7 +346,7 @@ goto mcp_menu
 @echo off
 cls
 call :ui mcp-global
-call %CODEGRAPH% install --target=claude,cursor,codex,copilot-vscode --location=global --yes
+call :run_codegraph install --target=claude,cursor,codex,copilot-vscode --location=global --yes
 if errorlevel 1 (
     call :ui mcp-global-failed
 ) else (
@@ -404,7 +406,7 @@ call :ui uninstall
 set "confirm="
 set /p "confirm="
 if /i "!confirm!"=="y" (
-    call %CODEGRAPH% uninstall
+    call :run_codegraph uninstall
     call :ui uninstall-complete
 ) else (
     call :ui cancelled
@@ -444,9 +446,41 @@ if errorlevel 1 (
 call :ui global-install-complete
 exit /b 0
 
-:verify_node_fts5
+:ensure_node_fts5
+if defined NODE_CMD (
+    "%NODE_CMD%" "%SCRIPT_DIR%\scripts\check-node-fts5.js" >nul 2>&1
+    if not errorlevel 1 exit /b 0
+)
+
+call :ui node-runtime-download
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\ensure-node-runtime.ps1" -RuntimeRoot "%SCRIPT_DIR%\.codegraph-runtime"
+if errorlevel 1 (
+    call :ui node-runtime-failed
+    pause >nul
+    exit /b 1
+)
+
+if not exist "%SCRIPT_DIR%\.codegraph-runtime\node-path.txt" (
+    call :ui node-runtime-failed
+    pause >nul
+    exit /b 1
+)
+
+set "NODE_CMD="
+set /p NODE_CMD=<"%SCRIPT_DIR%\.codegraph-runtime\node-path.txt"
+if not defined NODE_CMD (
+    call :ui node-runtime-failed
+    pause >nul
+    exit /b 1
+)
+
 "%NODE_CMD%" "%SCRIPT_DIR%\scripts\check-node-fts5.js" >nul 2>&1
-if not errorlevel 1 exit /b 0
-call :ui node-fts5-missing
-pause >nul
-exit /b 1
+if errorlevel 1 (
+    call :ui node-runtime-failed
+    pause >nul
+    exit /b 1
+)
+
+for %%i in ("%NODE_CMD%") do set "CG_NODE_DIR=%%~dpi"
+set "PATH=!CG_NODE_DIR!;%PATH%"
+exit /b 0

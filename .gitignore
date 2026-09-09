@@ -51,6 +51,7 @@ docs/business/
 
 # CodeGraph data directories (in test projects)
 .codegraph/
+.codegraph-runtime/
 
 test_frameworks
 

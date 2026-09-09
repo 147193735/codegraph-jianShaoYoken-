@@ -76,6 +76,24 @@ switch ($Screen) {
             "按任意键退出..."
         )
     }
+    "node-runtime-download" {
+        Write-Panel "正在准备隔离 Node.js 运行时" @(
+            "",
+            "当前 Node.js 不支持 SQLite FTS5。",
+            "将下载 Node.js 24 LTS 到本工具的 .codegraph-runtime 目录。",
+            "不会替换系统 Node.js，也不会修改项目依赖。",
+            ""
+        )
+    }
+    "node-runtime-failed" {
+        Write-Panel "[错误] 隔离 Node.js 运行时准备失败" @(
+            "",
+            "请检查网络后重新运行本工具。",
+            "详细原因请查看上方输出。",
+            "",
+            "按任意键退出..."
+        )
+    }
     "dependencies-install" {
         Write-Host "[*] 正在安装项目依赖..."
         Write-Host ""
