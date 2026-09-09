@@ -1,125 +1,112 @@
 ﻿@echo off
 chcp 65001 >nul 2>&1
-title CodeGraph 快速工具 v2.3
+title CodeGraph Quick Tool v2.3
 color 0B
 setlocal enabledelayedexpansion
 
-:: ============================================
-:: CodeGraph 检测与自动安装
-:: ============================================
+rem ============================================
+rem CodeGraph detection and setup
+rem ============================================
 set "SCRIPT_DIR=%~dp0"
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-:: 步骤1: 检测 Node.js
+rem Step 1: detect Node.js
 set "NODE_CMD=node"
 where node 2>nul >nul
 if errorlevel 1 (
     if exist "%ProgramFiles%\nodejs\node.exe" (
         set "NODE_CMD=%ProgramFiles%\nodejs\node.exe"
     ) else (
-        echo [错误] 未检测到 Node.js！
+        echo [ERROR] Node.js was not found.
         echo.
-        echo CodeGraph 需要 Node.js ^>=20 且 ^<25 运行环境。
-        echo 请先从 https://nodejs.org 下载安装 Node.js 20 或 22 LTS 版本。
+        echo CodeGraph requires Node.js version 20 through 24.
+        echo Install Node.js 20 or 22 LTS from https://nodejs.org first.
         echo.
         pause
         exit /b 1
     )
 )
 
-:: 步骤2: 检测 codegraph（全局安装优先）
-where codegraph 2>nul >nul
-if errorlevel 1 (
-    :: 未找到，自动全局安装
-    echo.
-    echo [*] 未检测到 CodeGraph，正在自动全局安装...
-    echo [*] npm i -g @colbymchenry/codegraph
-    echo.
-    call npm i -g @colbymchenry/codegraph
-    if errorlevel 1 (
-        echo.
-        echo [错误] 全局安装失败！请检查网络连接或手动执行：
-        echo   npm i -g @colbymchenry/codegraph
-        echo.
-        pause
-        exit /b 1
-    )
-    echo.
-    echo [√] CodeGraph 安装完成！
-    echo.
-)
+rem Step 2: require the global CLI only when no local build is available.
+if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" call :ensure_global_codegraph
+if errorlevel 1 exit /b 1
 set "CODEGRAPH=codegraph"
 
-:: 步骤3: 本地开发仓库 — 自动安装依赖并构建
-:: 当脚本位于 codegraph 仓库中（有 package.json），确保 node_modules 和 dist 就绪
+rem Step 3: prepare a local development checkout
+rem Ensure dependencies and dist are available when package.json is present.
 if exist "%SCRIPT_DIR%\package.json" (
     echo.
-    echo [*] 检测到本地开发仓库，正在检查构建环境...
+    echo [*] Local development checkout detected. Checking build files...
 
-    :: 3a. 安装依赖（node_modules/typescript 缺失时自动执行）
+    rem Install dependencies when TypeScript is missing.
     if not exist "%SCRIPT_DIR%\node_modules\typescript" (
-        echo [*] npm install -- 安装项目依赖...
+        echo [*] npm install -- installing project dependencies...
         echo.
         cd /d "%SCRIPT_DIR%"
         call npm install
         if errorlevel 1 (
             echo.
-            echo [警告] npm install 失败，某些功能可能不可用！
+            echo [WARN] npm install failed. Some features may be unavailable.
         )
         echo.
     )
 
-    :: 3b. 构建项目（dist/bin/codegraph.js 缺失时自动执行）
+    rem Build the local CLI when its entry point is missing.
     if not exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
-        echo [*] npm run build -- 编译 TypeScript 到 dist...
+        echo [*] npm run build -- compiling TypeScript into dist...
         echo.
         cd /d "%SCRIPT_DIR%"
         call npm run build
         if errorlevel 1 (
             echo.
-            echo [警告] npm run build 失败，将尝试使用全局命令！
+            echo [WARN] npm run build failed. The global command will be used.
         ) else (
-            echo [√] 本地构建完成！
+            echo [OK] Local build completed.
         )
         echo.
     )
 )
 
-:: 步骤4: 若脚本目录含本地构建，MCP 配置优先使用之（开发仓库场景）
-:: 使用 "node" 而非完整路径，避免 "Program Files" 空格导致配置写入失败
+rem Step 4: prefer the local build and pin MCP entries to it.
+rem Fall back to the global codegraph command only when no local build exists.
 set "CG_MCP_CMD=codegraph"
 set "CG_MCP_SCRIPT="
+set "CODEGRAPH_MCP_COMMAND="
+set "CODEGRAPH_MCP_SCRIPT="
 if exist "%SCRIPT_DIR%\dist\bin\codegraph.js" (
+    set "CODEGRAPH=node "%SCRIPT_DIR%\dist\bin\codegraph.js""
     set "CG_MCP_CMD=node"
     set "CG_MCP_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
+    set "CODEGRAPH_MCP_COMMAND=node"
+    set "CODEGRAPH_MCP_SCRIPT=%SCRIPT_DIR%\dist\bin\codegraph.js"
 )
 
 :detect_done
 
-:: ============================================
-:: 拖放支持：拖入文件夹后自动切换到目标目录
-:: ============================================
+rem ============================================
+rem Drag-and-drop target directory support
+rem ============================================
 if not "%~1"=="" (
     set "TARGET=%~1"
-    :: 如果拖入的是快捷方式(.lnk)，自动解析目标路径
+    rem Resolve a dropped shortcut before changing directories.
     if /i "%~x1"==".lnk" (
         for /f "delims=" %%t in ('powershell -NoProfile -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%~f1'); Write-Output $s.TargetPath" 2^>nul') do set "TARGET=%%t"
         if "!TARGET!"=="%~f1" (
-            echo [错误] 无法解析快捷方式!
+            echo [ERROR] Unable to resolve the shortcut target.
             pause
             exit /b 1
         )
     )
     pushd "!TARGET!" 2>nul
     if errorlevel 1 (
-        echo [错误] 无法进入目录: !TARGET!
+        echo [ERROR] Unable to enter directory: !TARGET!
         pause
         exit /b 1
     )
 )
 
 :menu
-:: 检测 VS Code / Cursor / Codex MCP 配置状态（各自独立配置文件）
+:: Detect VS Code, Cursor, and Codex MCP configuration independently.
 set "MCP_VSCODE=OFF"
 set "MCP_CURSOR=OFF"
 set "MCP_CODEX=OFF"
@@ -142,7 +129,7 @@ if exist "%MCP_CODEX_CFG%" (
 cls
 powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-menu.ps1" -CurrentDir "%CD%" -McpVscode "%MCP_VSCODE%" -McpCursor "%MCP_CURSOR%" -McpCodex "%MCP_CODEX%"
 echo.
-set /p "choice=请输入选项 (0-14): "
+set /p "choice=Choose an option (0-14): "
 
 if "!choice!"=="1" goto status
 if "!choice!"=="2" goto files
@@ -164,28 +151,28 @@ goto menu
 :status
 cls
 echo ----------------------------------------------
-echo              项目状态检查
+echo              Project Status
 echo ----------------------------------------------
 echo.
 call %CODEGRAPH% status
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :files
 cls
 echo ----------------------------------------------
-echo              项目文件结构
+echo              Project Files
 echo ----------------------------------------------
 echo.
-echo 格式选项: tree(树形) flat(列表) grouped(按语言)
-set /p "fmt=请输入格式 (默认 tree): "
+echo Formats: tree, flat, grouped
+set /p "fmt=Choose format (default tree): "
 if "!fmt!"=="" set fmt=tree
 echo.
-echo 筛选目录(可选，直接回车跳过):
-set /p "filter=请输入目录路径: "
+echo Optional directory filter. Leave blank to skip.
+set /p "filter=Directory path: "
 echo.
 if "!filter!"=="" (
     call %CODEGRAPH% files --format %fmt%
@@ -194,204 +181,204 @@ if "!filter!"=="" (
 )
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :query
 cls
 echo ----------------------------------------------
-echo              搜索代码符号
+echo              Search Symbol
 echo ----------------------------------------------
 echo.
-set /p "symbol=请输入要搜索的符号名称: "
+set /p "symbol=Symbol name: "
 if "!symbol!"=="" goto query
 echo.
-echo 正在搜索 "%symbol%"...
+echo Searching "%symbol%"...
 echo.
 call %CODEGRAPH% query "%symbol%"
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :callers
 cls
 echo ----------------------------------------------
-echo              查找调用者
+echo              Find Callers
 echo ----------------------------------------------
 echo.
-set /p "symbol=请输入符号名称: "
+set /p "symbol=Symbol name: "
 if "!symbol!"=="" goto callers
 echo.
-echo 正在查找 "%symbol%" 的调用者...
+echo Finding callers of "%symbol%"...
 echo.
 call %CODEGRAPH% callers "%symbol%"
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :callees
 cls
 echo ----------------------------------------------
-echo              查找被调用者
+echo              Find Callees
 echo ----------------------------------------------
 echo.
-set /p "symbol=请输入符号名称: "
+set /p "symbol=Symbol name: "
 if "!symbol!"=="" goto callees
 echo.
-echo 正在查找 "%symbol%" 调用了什么...
+echo Finding callees of "%symbol%"...
 echo.
 call %CODEGRAPH% callees "%symbol%"
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :impact
 cls
 echo ----------------------------------------------
-echo              分析变更影响
+echo              Analyze Impact
 echo ----------------------------------------------
 echo.
-set /p "symbol=请输入要分析的符号名称: "
+set /p "symbol=Symbol name: "
 if "!symbol!"=="" goto impact
-set /p "depth=请输入分析深度 (默认 2): "
+set /p "depth=Analysis depth (default 2): "
 if "!depth!"=="" set depth=2
 echo.
-echo 正在分析 "%symbol%" 的影响范围 (深度=%depth%)...
+echo Analyzing impact for "%symbol%" (depth=%depth%)...
 echo.
 call %CODEGRAPH% impact "%symbol%" --depth %depth%
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :affected
 cls
 echo ----------------------------------------------
-echo           查找受影响的测试文件
+echo           Find Affected Tests
 echo ----------------------------------------------
 echo.
-echo 输入源文件路径(空格分隔多个文件^)
-echo 直接回车则对比最近一次 git 提交的变更
-echo 示例: src/utils.ts src/api.ts
+echo Source file paths separated by spaces.
+echo Leave blank to compare the latest Git commit.
+echo Example: src/utils.ts src/api.ts
 echo.
-set /p files="请输入文件路径: "
+set /p files="File paths: "
 echo.
 if not "!files!"=="" goto :affected_files
-echo 正在使用 git diff 检测变更文件...
+echo Detecting changed files with git diff...
 echo.
 git diff --name-only HEAD~1 2>nul | %CODEGRAPH% affected --stdin
 goto :affected_done
 
 :affected_files
-echo 正在查找受影响的测试文件...
+echo Finding affected test files...
 echo.
 call %CODEGRAPH% affected %files%
 
 :affected_done
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :init
 cls
 echo ----------------------------------------------
-echo              初始化 CodeGraph
+echo              Initialize CodeGraph
 echo ----------------------------------------------
 echo.
-echo 正在初始化项目并构建索引...
+echo Initializing the project and building its index...
 echo.
 call %CODEGRAPH% init -i
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :index
 cls
 echo ----------------------------------------------
-echo              重新索引项目
+echo              Reindex Project
 echo ----------------------------------------------
 echo.
-echo 警告: 将清除现有索引并重新构建!
-set /p "confirm=确认重新索引? (y/n): "
+echo Warning: this removes the existing index and rebuilds it.
+set /p "confirm=Reindex project? (y/n): "
 if /i "!confirm!"=="y" (
     echo.
-    echo 正在执行完整重新索引...
+    echo Running full reindex...
     echo.
     call %CODEGRAPH% index --force
 ) else (
-    echo 已取消。
+    echo Cancelled.
 )
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :sync
 cls
 echo ----------------------------------------------
-echo              增量同步索引
+echo              Incremental Sync
 echo ----------------------------------------------
 echo.
-echo 正在同步最新的文件变更...
+echo Syncing recent file changes...
 echo.
 call %CODEGRAPH% sync
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :serve
 cls
 echo ----------------------------------------------
-echo             启动 MCP 服务
+echo             Start MCP Server
 echo ----------------------------------------------
 echo.
-echo 正在启动 MCP 服务...
-echo 按 Ctrl+C 停止服务
+echo Starting MCP server...
+echo Press Ctrl+C to stop the server.
 echo.
 call %CODEGRAPH% serve --mcp
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :mcp_menu
 cls
 echo ----------------------------------------------
-echo      配置 MCP 集成 (VS Code / Cursor / Codex)
+echo      Configure MCP (VS Code / Cursor / Codex)
 echo ----------------------------------------------
 echo.
-echo  VS Code、Cursor 与 Codex 使用独立配置文件，互不影响：
+echo  VS Code, Cursor, and Codex use separate configuration files:
 echo    VS Code   %%APPDATA%%\Code\User\mcp.json
-echo    Cursor    项目 .cursor\mcp.json 或全局 %%USERPROFILE%%\.cursor\mcp.json
-echo    Codex     %%USERPROFILE%%\.codex\config.toml (用户级)
+echo    Cursor    local .cursor\mcp.json or global %%USERPROFILE%%\.cursor\mcp.json
+echo    Codex     %%USERPROFILE%%\.codex\config.toml (global)
 echo.
-echo  当前状态: VS Code=%MCP_VSCODE%  Cursor=%MCP_CURSOR%  Codex=%MCP_CODEX%
+echo  Status: VS Code=%MCP_VSCODE%  Cursor=%MCP_CURSOR%  Codex=%MCP_CODEX%
 echo.
-echo  [1] 配置 VS Code Copilot MCP (用户级，所有项目通用)
-echo  [2] 配置 Cursor MCP (当前项目本地)
-echo  [3] 配置 Cursor MCP (全局，~/.cursor/mcp.json)
-echo  [4] 同时配置 VS Code + Cursor (当前项目)  [推荐]
-echo  [5] 注册 Codex MCP (用户级，所有 Codex 项目)
-echo  [6] 配置其他 AI 代理 (Claude/opencode...)
-echo  [0] 返回主菜单
+echo  [1] Configure VS Code Copilot MCP (global)
+echo  [2] Configure Cursor MCP (local project)
+echo  [3] Configure Cursor MCP (global)
+echo  [4] Configure VS Code plus Cursor (local project)
+echo  [5] Register Codex MCP (global)
+echo  [6] Configure global MCP (Claude / Cursor / Codex / VS Code Copilot)
+echo  [0] Return to main menu
 echo.
-set /p "mcp_choice=请选择 (0-6): "
+set /p "mcp_choice=Choose an option (0-6): "
 if "!mcp_choice!"=="1" goto mcp_config_vscode
 if "!mcp_choice!"=="2" goto mcp_config_cursor_local
 if "!mcp_choice!"=="3" goto mcp_config_cursor_global
@@ -404,33 +391,33 @@ goto mcp_menu
 :mcp_config_vscode
 call :mcp_write_vscode
 echo.
-echo [OK] VS Code MCP 已写入: %MCP_VSCODE_CFG%
-echo      请重启 VS Code 使配置生效。
+echo [OK] VS Code MCP written: %MCP_VSCODE_CFG%
+echo      Restart VS Code to load the configuration.
 echo.
 echo ----------------------------------------------
-echo 按任意键返回...
+echo Press any key to return...
 pause >nul
 goto mcp_menu
 
 :mcp_config_cursor_local
 call :mcp_write_cursor_local
 echo.
-echo [OK] Cursor MCP 已写入: %MCP_CURSOR_LOCAL_CFG%
-echo      请重启 Cursor 使配置生效。
+echo [OK] Cursor MCP written: %MCP_CURSOR_LOCAL_CFG%
+echo      Restart Cursor to load the configuration.
 echo.
 echo ----------------------------------------------
-echo 按任意键返回...
+echo Press any key to return...
 pause >nul
 goto mcp_menu
 
 :mcp_config_cursor_global
 call :mcp_write_cursor_global
 echo.
-echo [OK] Cursor MCP 已写入: %MCP_CURSOR_GLOBAL_CFG%
-echo      请重启 Cursor 使配置生效。
+echo [OK] Cursor MCP written: %MCP_CURSOR_GLOBAL_CFG%
+echo      Restart Cursor to load the configuration.
 echo.
 echo ----------------------------------------------
-echo 按任意键返回...
+echo Press any key to return...
 pause >nul
 goto mcp_menu
 
@@ -438,64 +425,68 @@ goto mcp_menu
 call :mcp_write_vscode
 call :mcp_write_cursor_local
 echo.
-echo [OK] 已同时配置 VS Code 与 Cursor (当前项目)
-echo      请分别重启 VS Code 和 Cursor。
+echo [OK] VS Code and Cursor were configured for this project.
+echo      Restart VS Code and Cursor to load the configuration.
 echo.
 echo ----------------------------------------------
-echo 按任意键返回...
+echo Press any key to return...
 pause >nul
 goto mcp_menu
 
 :mcp_config_codex
 cls
 echo ----------------------------------------------
-echo          注册 Codex MCP (用户级)
+echo          Register Codex MCP (Global)
 echo ----------------------------------------------
 echo.
-echo 将把 CodeGraph 注册到所有 Codex 项目的 MCP 配置：
+echo This registers CodeGraph for every Codex project:
 echo   %%USERPROFILE%%\.codex\config.toml
 echo.
-echo 正在注册...
+echo Registering...
 echo.
-if defined CG_MCP_SCRIPT (
-    call "%NODE_CMD%" "%CG_MCP_SCRIPT%" install --target=codex --location=global --yes
-) else (
-    call %CODEGRAPH% install --target=codex --location=global --yes
-)
+call %CODEGRAPH% install --target=codex --location=global --yes
 if errorlevel 1 (
     echo.
-    echo [错误] Codex MCP 注册失败。请查看上方输出。
+    echo [ERROR] Codex MCP registration failed. Review the output above.
 ) else (
     echo.
-    echo [OK] Codex MCP 已注册。
-    echo      请重启 Codex 或新建会话以加载 codegraph_explore 工具。
+    echo [OK] Codex MCP is registered.
+    echo      Restart Codex or start a new session to load codegraph_explore.
 )
 echo.
 echo ----------------------------------------------
-echo 按任意键返回...
+echo Press any key to return...
 pause >nul
 goto mcp_menu
 
 :mcp_config_other
+@echo off
 cls
 echo ----------------------------------------------
-echo           配置其他 AI 代理
+echo            Configure Global MCP
 echo ----------------------------------------------
 echo.
-echo 正在运行 CodeGraph 安装程序，将自动检测并配置：
-echo   - Claude Code / Cursor / opencode 等
-echo   注意: 此命令不会写入 VS Code 的 mcp.json
+echo Targets: Claude Code, Cursor, Codex CLI, VS Code Copilot
+echo Scope: global, all projects
+echo Claude also receives CodeGraph permissions and an instructions block.
 echo.
-call %CODEGRAPH% install
+call %CODEGRAPH% install --target=claude,cursor,codex,copilot-vscode --location=global --yes
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Global MCP configuration failed. Review the output above.
+) else (
+    echo.
+    echo [OK] Global MCP configuration completed. Restart the affected tools.
+)
 echo.
 echo ----------------------------------------------
-echo 按任意键返回...
+echo Press any key to return...
 pause >nul
 goto mcp_menu
 
-:: ============================================
-:: MCP 配置写入 (PowerShell JSON 合并)
-:: ============================================
+rem ============================================
+rem MCP configuration writer
+rem ============================================
 :mcp_write_vscode
 set "MCP_WRITE_CFG=%MCP_VSCODE_CFG%"
 set "MCP_WRITE_KEY=servers"
@@ -541,61 +532,82 @@ exit /b 0
 :uninstall
 cls
 echo ----------------------------------------------
-echo              卸载 CodeGraph
+echo              Uninstall CodeGraph
 echo ----------------------------------------------
 echo.
-echo 警告: 这将从所有已配置的代理中移除 CodeGraph!
+echo Warning: this removes CodeGraph from every configured agent.
 echo.
-set /p "confirm=确认卸载? (y/n): "
+set /p "confirm=Uninstall? (y/n): "
 if /i "!confirm!"=="y" (
     call %CODEGRAPH% uninstall
     echo.
-    echo 卸载完成。
+    echo Uninstall completed.
 ) else (
-    echo 已取消。
+    echo Cancelled.
 )
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
 :help
 cls
 echo ----------------------------------------------
-echo              帮助信息
+echo              Help
 echo ----------------------------------------------
 echo.
-echo CodeGraph 是一个本地优先的语义代码知识图谱工具。
-echo 它为 AI 编码助手(Claude Code、Cursor、VS Code Copilot 等)
-echo 提供代码结构查询能力，比传统的 grep/搜索快 70%。
+echo CodeGraph is a local-first semantic code graph tool.
+echo It gives AI coding agents structural code-query capabilities.
+echo It can be much faster than traditional grep-based exploration.
 echo.
-echo 主要功能:
-echo   * 代码符号索引 --- 函数、类、方法、变量等
-echo   * 调用关系追踪 --- 调用者/被调用者分析
-echo   * 影响范围分析 --- 修改前评估影响
-echo   * 全文本搜索 --- 基于 FTS5 的快速搜索
-echo   * 自动同步 --- 文件变更后自动更新索引
-echo   * 20+ 语言支持 --- TS/JS/Python/Go/Rust/Java 等
-echo   * 框架感知路由 --- Django/Flask/Express/Spring 等
+echo Features:
+echo   * Symbol indexing for functions, classes, methods, and variables
+echo   * Caller and callee tracing
+echo   * Change impact analysis
+echo   * FTS5 full-text search
+echo   * Automatic sync after file changes
+echo   * Support for more than 20 languages
+echo   * Framework-aware routing
 echo.
-echo 拖放用法: 将项目文件夹拖到此 .bat 文件上即可直接操作
+echo Drag and drop a project folder onto this .bat file to work in that folder.
 echo.
-echo 更多信息: https://colbymchenry.github.io/codegraph/
+echo More information: https://colbymchenry.github.io/codegraph/
 echo.
 echo ----------------------------------------------
-echo 按任意键返回主菜单...
+echo Press any key to return to the main menu...
 pause >nul
 goto menu
 
-:: ============================================
-:: 安全退出 & 兜底（防止窗口意外关闭）
-:: ============================================
+rem ============================================
+rem Safe exit and fall-through guard
+rem ============================================
 :safe_exit
 echo.
-echo 感谢使用 CodeGraph！
+echo Thank you for using CodeGraph.
 pause >nul
 exit /b
 
-:: 兜底：万一脚本执行流到达此处，回到菜单
+rem Return to the menu if execution reaches this point.
 goto menu
+
+:ensure_global_codegraph
+where codegraph 2>nul >nul
+if not errorlevel 1 exit /b 0
+echo.
+echo [*] CodeGraph CLI was not found. Installing globally...
+echo [*] npm i -g @colbymchenry/codegraph
+echo.
+call npm i -g @colbymchenry/codegraph
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Global installation failed. Check your network or run:
+    echo   npm i -g @colbymchenry/codegraph
+    echo.
+    pause
+    exit /b 1
+)
+echo.
+echo [OK] CodeGraph installation completed.
+echo.
+exit /b 0

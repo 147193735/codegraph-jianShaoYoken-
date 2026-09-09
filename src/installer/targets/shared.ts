@@ -20,8 +20,21 @@ import {
  * The MCP-server config block codegraph injects. Same shape across
  * all JSON-shaped agent configs (Claude, Cursor, opencode), only the
  * surrounding wrapper differs. Codex (TOML) builds its own block.
+ *
+ * A development launcher can set CODEGRAPH_MCP_SCRIPT to pin configured
+ * agents to a local built CLI. CODEGRAPH_MCP_COMMAND optionally supplies
+ * its runtime (normally node). Production installs keep the portable
+ * PATH-based `codegraph serve --mcp` default.
  */
 export function getMcpServerConfig(): { type: string; command: string; args: string[] } {
+  const script = process.env.CODEGRAPH_MCP_SCRIPT?.trim();
+  if (script) {
+    return {
+      type: 'stdio',
+      command: process.env.CODEGRAPH_MCP_COMMAND?.trim() || 'node',
+      args: [script, 'serve', '--mcp'],
+    };
+  }
   return {
     type: 'stdio',
     command: 'codegraph',
@@ -60,7 +73,10 @@ export function readJsonFile(filePath: string): Record<string, any> {
     return {};
   }
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    // Windows PowerShell's UTF-8 writer may prepend a BOM. JSON.parse does
+    // not accept it, although the remaining document is valid JSON.
+    const text = fs.readFileSync(filePath, 'utf-8').replace(/^\uFEFF/, '');
+    return JSON.parse(text);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(`  Warning: Could not parse ${path.basename(filePath)}: ${msg}`);
