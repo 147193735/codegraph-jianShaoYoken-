@@ -461,7 +461,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$args=@('serve','--mcp'); if($pathArg){$args+=@('--path',$pathArg)};" ^
   "if($script){$entry=@{type='stdio';command=$cmd;args=@($script)+$args}} else {$entry=@{type='stdio';command=$cmd;args=$args}};" ^
   "$obj.$topKey|Add-Member -NotePropertyName codegraph -NotePropertyValue (New-Object PSObject -Property $entry) -Force;" ^
-  "$obj|ConvertTo-Json -Depth 10|Set-Content $cfgPath -Encoding UTF8"
+  "$json=$obj|ConvertTo-Json -Depth 10;" ^
+  "[System.IO.File]::WriteAllText($cfgPath,$json,(New-Object System.Text.UTF8Encoding($false)))"
 exit /b 0
 
 :mcp_remove_workbuddy_codebuddy
@@ -473,7 +474,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "  try{$o=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json}catch{continue};" ^
   "  if($o -and $o.PSObject.Properties['mcpServers'] -and $o.mcpServers.PSObject.Properties['codegraph']){" ^
   "    $o.mcpServers.PSObject.Properties.Remove('codegraph')|Out-Null;" ^
-  "    $o|ConvertTo-Json -Depth 10|Set-Content $p -Encoding UTF8}}"
+  "    $j=$o|ConvertTo-Json -Depth 10;" ^
+  "    [System.IO.File]::WriteAllText($p,$j,(New-Object System.Text.UTF8Encoding($false)))}}"
 exit /b 0
 
 :uninstall
