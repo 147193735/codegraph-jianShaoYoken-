@@ -195,6 +195,40 @@ codegraph affected src/auth.ts --filter "e2e/*"
 - **Antigravity IDE** — AI 驱动的开发环境
 - **Kiro** — AI 编码助手
 
+### 7.1 WorkBuddy / CodeBuddy（快速工具支持）
+
+腾讯的 **WorkBuddy**（通用 AI 工作台）与 **CodeBuddy**（AI 编程工具，IDE + CLI）
+**不在** `codegraph install --target` 的 CLI 目标列表中，因此不由交互式安装程序处理。
+请使用**快速工具主菜单 → `[12] 配置 MCP (多平台)`**，其中已内置对应选项：
+
+| 菜单项 | 作用 |
+|--------|------|
+| `[6] 配置 WorkBuddy MCP（全局）` | 写入 `%USERPROFILE%\.workbuddy\mcp.json` |
+| `[7] 配置 CodeBuddy MCP（全局）` | 写入 `%USERPROFILE%\.codebuddy\mcp.json` |
+| `[8] 同时配置 VS Code / WorkBuddy / CodeBuddy（全局）` | 三者的 MCP 一次写好 |
+| `[9] 配置全局 MCP` | Claude / Cursor / Codex / Copilot **+ WorkBuddy / CodeBuddy** |
+
+主菜单会实时显示两者的 MCP 状态（已配置 / 未配置）。
+卸载配置时同样会清理这两个文件的 `codegraph` 条目。
+
+#### 手动配置（等价写法）
+
+`%USERPROFILE%\.workbuddy\mcp.json` 或 `%USERPROFILE%\.codebuddy\mcp.json`：
+
+```json
+{
+    "mcpServers": {
+        "codegraph": {
+            "type": "stdio",
+            "command": "codegraph",
+            "args": ["serve", "--mcp"]
+        }
+    }
+}
+```
+
+配置完成后**重启对应工具**，即可在会话中使用 `codegraph_explore`。
+
 ---
 
 ## 8. VS Code 集成说明

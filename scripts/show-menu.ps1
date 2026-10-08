@@ -2,7 +2,9 @@
     [string]$CurrentDir,
     [string]$McpVscode,
     [string]$McpCursor,
-    [string]$McpCodex
+    [string]$McpCodex,
+    [string]$McpWorkbuddy,
+    [string]$McpCodebuddy
 )
 
 $top = "----------------------------------------------"
@@ -19,13 +21,16 @@ function Convert-McpStatus([string]$Status) {
 $vscodeStatus = Convert-McpStatus $McpVscode
 $cursorStatus = Convert-McpStatus $McpCursor
 $codexStatus = Convert-McpStatus $McpCodex
+$workbuddyStatus = Convert-McpStatus $McpWorkbuddy
+$codebuddyStatus = Convert-McpStatus $McpCodebuddy
 Write-Host $top
-Write-Host "     CodeGraph 快速工具 v2.3"
+Write-Host "     CodeGraph 快速工具 v2.4"
 Write-Host "     语义代码知识图谱 --- 命令行助手"
 Write-Host $top
 Write-Host ""
 Write-Host " 当前目录: $CurrentDir"
 Write-Host " MCP 状态: VS Code=$vscodeStatus  Cursor=$cursorStatus  Codex=$codexStatus"
+Write-Host "           WorkBuddy=$workbuddyStatus  CodeBuddy=$codebuddyStatus"
 Write-Host $top
 Write-Host ""
 Write-Host " [查看分析]"
@@ -39,7 +44,7 @@ Write-Host " [7] 查找受影响测试"
 Write-Host ""
 Write-Host " [索引维护]          [服务与配置]"
 Write-Host " [8] 初始化项目     [11] MCP 服务"
-Write-Host " [9] 重新索引       [12] 配置 MCP (IDE / Codex)"
+Write-Host " [9] 重新索引       [12] 配置 MCP (多平台)"
 Write-Host " [10] 增量同步      [13] 卸载配置"
 Write-Host "                    [14] 帮助"
 Write-Host ""

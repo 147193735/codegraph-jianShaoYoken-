@@ -2,7 +2,7 @@
 goto :cg_main
 
 :ui
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-ui.ps1" -Screen "%~1" -McpVscode "%~2" -McpCursor "%~3" -McpCodex "%~4"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-ui.ps1" -Screen "%~1" -McpVscode "%~2" -McpCursor "%~3" -McpCodex "%~4" -McpWorkbuddy "%~5" -McpCodebuddy "%~6"
 exit /b 0
 
 :run_codegraph
@@ -114,14 +114,18 @@ if not "%~1"=="" (
 )
 
 :menu
-:: Detect VS Code, Cursor, and Codex MCP configuration independently.
+:: Detect VS Code, Cursor, Codex, WorkBuddy, and CodeBuddy MCP configuration independently.
 set "MCP_VSCODE=OFF"
 set "MCP_CURSOR=OFF"
 set "MCP_CODEX=OFF"
+set "MCP_WORKBUDDY=OFF"
+set "MCP_CODEBUDDY=OFF"
 set "MCP_VSCODE_CFG=%APPDATA%\Code\User\mcp.json"
 set "MCP_CURSOR_LOCAL_CFG=%CD%\.cursor\mcp.json"
 set "MCP_CURSOR_GLOBAL_CFG=%USERPROFILE%\.cursor\mcp.json"
 set "MCP_CODEX_CFG=%USERPROFILE%\.codex\config.toml"
+set "MCP_WORKBUDDY_CFG=%USERPROFILE%\.workbuddy\mcp.json"
+set "MCP_CODEBUDDY_CFG=%USERPROFILE%\.codebuddy\mcp.json"
 if exist "%MCP_VSCODE_CFG%" (
     findstr /i "codegraph" "%MCP_VSCODE_CFG%" >nul 2>&1 && set "MCP_VSCODE=ON"
 )
@@ -133,9 +137,15 @@ if exist "%MCP_CURSOR_LOCAL_CFG%" (
 if exist "%MCP_CODEX_CFG%" (
     findstr /i "mcp_servers.codegraph" "%MCP_CODEX_CFG%" >nul 2>&1 && set "MCP_CODEX=ON"
 )
+if exist "%MCP_WORKBUDDY_CFG%" (
+    findstr /i "codegraph" "%MCP_WORKBUDDY_CFG%" >nul 2>&1 && set "MCP_WORKBUDDY=ON"
+)
+if exist "%MCP_CODEBUDDY_CFG%" (
+    findstr /i "codegraph" "%MCP_CODEBUDDY_CFG%" >nul 2>&1 && set "MCP_CODEBUDDY=ON"
+)
 
 cls
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-menu.ps1" -CurrentDir "%CD%" -McpVscode "%MCP_VSCODE%" -McpCursor "%MCP_CURSOR%" -McpCodex "%MCP_CODEX%"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scripts\show-menu.ps1" -CurrentDir "%CD%" -McpVscode "%MCP_VSCODE%" -McpCursor "%MCP_CURSOR%" -McpCodex "%MCP_CODEX%" -McpWorkbuddy "%MCP_WORKBUDDY%" -McpCodebuddy "%MCP_CODEBUDDY%"
 call :ui main-prompt
 set "choice="
 set /p "choice="
@@ -301,7 +311,7 @@ goto menu
 
 :mcp_menu
 cls
-call :ui mcp-menu "%MCP_VSCODE%" "%MCP_CURSOR%" "%MCP_CODEX%"
+call :ui mcp-menu "%MCP_VSCODE%" "%MCP_CURSOR%" "%MCP_CODEX%" "%MCP_WORKBUDDY%" "%MCP_CODEBUDDY%"
 set "mcp_choice="
 set /p "mcp_choice="
 if "!mcp_choice!"=="1" goto mcp_config_vscode
@@ -309,7 +319,10 @@ if "!mcp_choice!"=="2" goto mcp_config_cursor_local
 if "!mcp_choice!"=="3" goto mcp_config_cursor_global
 if "!mcp_choice!"=="4" goto mcp_config_both
 if "!mcp_choice!"=="5" goto mcp_config_codex
-if "!mcp_choice!"=="6" goto mcp_config_other
+if "!mcp_choice!"=="6" goto mcp_config_workbuddy
+if "!mcp_choice!"=="7" goto mcp_config_codebuddy
+if "!mcp_choice!"=="8" goto mcp_config_ai_ides
+if "!mcp_choice!"=="9" goto mcp_config_other
 if "!mcp_choice!"=="0" goto menu
 goto mcp_menu
 
@@ -350,12 +363,39 @@ if errorlevel 1 (
 pause >nul
 goto mcp_menu
 
+:mcp_config_workbuddy
+cls
+call :ui mcp-workbuddy
+call :mcp_write_workbuddy
+call :ui mcp-workbuddy-success
+pause >nul
+goto mcp_menu
+
+:mcp_config_codebuddy
+cls
+call :ui mcp-codebuddy
+call :mcp_write_codebuddy
+call :ui mcp-codebuddy-success
+pause >nul
+goto mcp_menu
+
+:mcp_config_ai_ides
+call :mcp_write_vscode
+call :mcp_write_workbuddy
+call :mcp_write_codebuddy
+call :ui mcp-ai-ides-success
+pause >nul
+goto mcp_menu
+
 :mcp_config_other
 @echo off
 cls
 call :ui mcp-global
 call :run_codegraph install --target=claude,cursor,codex,copilot-vscode --location=global --yes
-if errorlevel 1 (
+set "CG_GLOBAL_RC=%ERRORLEVEL%"
+call :mcp_write_workbuddy
+call :mcp_write_codebuddy
+if not "%CG_GLOBAL_RC%"=="0" (
     call :ui mcp-global-failed
 ) else (
     call :ui mcp-global-success
@@ -389,6 +429,22 @@ set "MCP_WRITE_PATH_ARG=${workspaceFolder}"
 call :mcp_write_json
 exit /b 0
 
+:mcp_write_workbuddy
+if not exist "%USERPROFILE%\.workbuddy" mkdir "%USERPROFILE%\.workbuddy"
+set "MCP_WRITE_CFG=%USERPROFILE%\.workbuddy\mcp.json"
+set "MCP_WRITE_KEY=mcpServers"
+set "MCP_WRITE_PATH_ARG="
+call :mcp_write_json
+exit /b 0
+
+:mcp_write_codebuddy
+if not exist "%USERPROFILE%\.codebuddy" mkdir "%USERPROFILE%\.codebuddy"
+set "MCP_WRITE_CFG=%USERPROFILE%\.codebuddy\mcp.json"
+set "MCP_WRITE_KEY=mcpServers"
+set "MCP_WRITE_PATH_ARG="
+call :mcp_write_json
+exit /b 0
+
 :mcp_write_json
 set "MCP_ENV_CFG=%MCP_WRITE_CFG%"
 set "MCP_ENV_KEY=%MCP_WRITE_KEY%"
@@ -408,6 +464,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$obj|ConvertTo-Json -Depth 10|Set-Content $cfgPath -Encoding UTF8"
 exit /b 0
 
+:mcp_remove_workbuddy_codebuddy
+set "MCP_ENV_WB=%USERPROFILE%\.workbuddy\mcp.json"
+set "MCP_ENV_CB=%USERPROFILE%\.codebuddy\mcp.json"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+  "foreach($p in @($env:MCP_ENV_WB,$env:MCP_ENV_CB)){" ^
+  "  if(-not(Test-Path $p)){continue};" ^
+  "  try{$o=Get-Content $p -Raw -Encoding UTF8|ConvertFrom-Json}catch{continue};" ^
+  "  if($o -and $o.PSObject.Properties['mcpServers'] -and $o.mcpServers.PSObject.Properties['codegraph']){" ^
+  "    $o.mcpServers.PSObject.Properties.Remove('codegraph')|Out-Null;" ^
+  "    $o|ConvertTo-Json -Depth 10|Set-Content $p -Encoding UTF8}}"
+exit /b 0
+
 :uninstall
 cls
 call :ui uninstall
@@ -415,6 +483,7 @@ set "confirm="
 set /p "confirm="
 if /i "!confirm!"=="y" (
     call :run_codegraph uninstall
+    call :mcp_remove_workbuddy_codebuddy
     call :ui uninstall-complete
 ) else (
     call :ui cancelled

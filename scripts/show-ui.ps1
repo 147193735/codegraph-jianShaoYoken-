@@ -3,7 +3,9 @@
     [string]$Screen,
     [string]$McpVscode,
     [string]$McpCursor,
-    [string]$McpCodex
+    [string]$McpCodex,
+    [string]$McpWorkbuddy,
+    [string]$McpCodebuddy
 )
 
 $line = "----------------------------------------------"
@@ -46,7 +48,7 @@ function Convert-McpStatus([string]$Status) {
 switch ($Screen) {
     "set-title" {
         try {
-            $Host.UI.RawUI.WindowTitle = "CodeGraph 快速工具 v2.3"
+            $Host.UI.RawUI.WindowTitle = "CodeGraph 快速工具 v2.4"
         } catch {
             # Some hosts do not expose a writable console title.
         }
@@ -245,25 +247,33 @@ switch ($Screen) {
         $cursorProjectPath = Join-Path (Get-Location) ".cursor\mcp.json"
         $cursorGlobalPath = Join-Path $env:USERPROFILE ".cursor\mcp.json"
         $codexPath = Join-Path $env:USERPROFILE ".codex\config.toml"
-        Write-Panel "配置 MCP（VS Code / Cursor / Codex）" @(
+        $workbuddyPath = Join-Path $env:USERPROFILE ".workbuddy\mcp.json"
+        $codebuddyPath = Join-Path $env:USERPROFILE ".codebuddy\mcp.json"
+        Write-Panel "配置 MCP（VS Code / Cursor / Codex / WorkBuddy / CodeBuddy）" @(
             "",
-            "VS Code、Cursor 与 Codex 使用不同的配置文件：",
-            "  VS Code  $vscodePath",
-            "  Cursor   项目配置 $cursorProjectPath",
-            "           全局配置 $cursorGlobalPath",
-            "  Codex    全局配置 $codexPath",
+            "各工具使用不同的配置文件：",
+            "  VS Code   $vscodePath",
+            "  Cursor    项目配置 $cursorProjectPath",
+            "            全局配置 $cursorGlobalPath",
+            "  Codex     全局配置 $codexPath",
+            "  WorkBuddy 全局配置 $workbuddyPath",
+            "  CodeBuddy 全局配置 $codebuddyPath",
             "",
             "当前状态：VS Code=$(Convert-McpStatus $McpVscode)  Cursor=$(Convert-McpStatus $McpCursor)  Codex=$(Convert-McpStatus $McpCodex)",
+            "          WorkBuddy=$(Convert-McpStatus $McpWorkbuddy)  CodeBuddy=$(Convert-McpStatus $McpCodebuddy)",
             "",
             "[1] 配置 VS Code Copilot MCP（全局）",
             "[2] 配置 Cursor MCP（当前项目）",
             "[3] 配置 Cursor MCP（全局）",
             "[4] 同时配置 VS Code 与 Cursor（当前项目）",
             "[5] 注册 Codex MCP（全局）",
-            "[6] 配置全局 MCP（Claude / Cursor / Codex / VS Code Copilot）",
+            "[6] 配置 WorkBuddy MCP（全局）",
+            "[7] 配置 CodeBuddy MCP（全局）",
+            "[8] 同时配置 VS Code / WorkBuddy / CodeBuddy（全局）",
+            "[9] 配置全局 MCP（Claude / Cursor / Codex / VS Code Copilot + WorkBuddy / CodeBuddy）",
             "[0] 返回主菜单",
             "",
-            "请输入功能编号 (0-6)："
+            "请输入功能编号 (0-9)："
         )
     }
     "mcp-vscode-success" {
@@ -311,12 +321,52 @@ switch ($Screen) {
         Write-Host "请重启 Codex 或新建会话以加载 codegraph_explore 工具。"
         Write-ReturnToMcpMenu
     }
+    "mcp-workbuddy" {
+        Write-Panel "配置 WorkBuddy MCP（全局）" @(
+            "",
+            "这会为所有 WorkBuddy 会话注册 CodeGraph：",
+            "  $(Join-Path $env:USERPROFILE '.workbuddy\mcp.json')",
+            "",
+            "正在写入...",
+            ""
+        )
+    }
+    "mcp-workbuddy-success" {
+        Write-Host ""
+        Write-Host "[完成] 已写入全局 WorkBuddy MCP 配置。"
+        Write-Host "请重启 WorkBuddy 以加载 codegraph_explore 工具。"
+        Write-ReturnToMcpMenu
+    }
+    "mcp-codebuddy" {
+        Write-Panel "配置 CodeBuddy MCP（全局）" @(
+            "",
+            "这会为所有 CodeBuddy 会话注册 CodeGraph：",
+            "  $(Join-Path $env:USERPROFILE '.codebuddy\mcp.json')",
+            "",
+            "正在写入...",
+            ""
+        )
+    }
+    "mcp-codebuddy-success" {
+        Write-Host ""
+        Write-Host "[完成] 已写入全局 CodeBuddy MCP 配置。"
+        Write-Host "请重启 CodeBuddy 以加载 codegraph_explore 工具。"
+        Write-ReturnToMcpMenu
+    }
+    "mcp-ai-ides-success" {
+        Write-Host ""
+        Write-Host "[完成] 已写入全局 VS Code / WorkBuddy / CodeBuddy MCP 配置。"
+        Write-Host "请重启上述工具以加载配置。"
+        Write-ReturnToMcpMenu
+    }
     "mcp-global" {
         Write-Panel "配置全局 MCP" @(
             "",
             "目标：Claude Code、Cursor、Codex CLI、VS Code Copilot",
+            "      WorkBuddy、CodeBuddy",
             "范围：全局，对所有项目生效。",
             "Claude 还会获得 CodeGraph 权限与使用说明。",
+            "WorkBuddy / CodeBuddy 通过直接写入 mcp.json 完成。",
             ""
         )
     }
